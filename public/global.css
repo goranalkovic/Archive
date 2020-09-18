@@ -70,11 +70,38 @@ input[type=file] {
     border: 1px dashed #bbb;
     margin: 0;
     color: transparent;
-    padding: 0.5rem 0.5rem 0 0.5rem;
     width: 14rem;
+    border-radius: 6px;
+    padding: 0;
+    height: 2.4rem;
+    position: relative;
+    transition: 0.3s background-color;
+    cursor: pointer;
 }
 
-button, input::-webkit-file-upload-button {
+input[type=file]::before {
+    content: 'Drag & drop or click to upload';
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #aaa !important;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+input[type=file]:hover {
+    background-color: #fcfcfc;
+}
+
+input::-webkit-file-upload-button {
+    display: none;
+}
+
+button {
     color: #333;
     background-color: #fff;
     outline: none;
@@ -360,6 +387,7 @@ input[type="checkbox"] {
     margin: 0;
     border: 1px dashed transparent;
     background-color: transparent;
+    user-select: none;
 }
 
 .preview:hover {
@@ -369,6 +397,7 @@ input[type="checkbox"] {
 
 .preview a {
     text-decoration: none;
+    pointer-events: none;
 }
 
 .warning {
@@ -407,12 +436,15 @@ input[type="color"]::-webkit-color-swatch {
 .ctrl-flex {
     display: flex;
     align-items: baseline;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
     margin: 0.5rem 0;
 }
 
 .ctrl-flex label {
-    width: 200px;
+    /* width: 200px; */
+    width: 100%;
+    margin: 0;
 }
 
 .ctrl-flex input[type="number"], .ctrl-flex input[type="text"], .ctrl-flex select, .ctrl-flex .toggleBtn {
@@ -430,4 +462,61 @@ input[type="color"]::-webkit-color-swatch {
 
 .toggleBtn.toggled:hover {
     background-color: #000;
+}
+
+details details {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px;
+}
+
+.sidebar-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    height: 100vh;
+}
+
+.sidebar-grid main, .sidebar-grid aside {
+    overflow-y: auto;
+    padding-top: 3rem;
+}
+
+.sidebar-grid aside {
+    border-left: 1px solid #e2e8f0;
+}
+
+.sidebar-grid aside .section-title {
+    display: inline-block;
+    user-select: none;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-grid main {
+    padding: 1rem;
+    padding-top: 3.5rem;
+}
+
+.sidebar-grid aside .item {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+::-webkit-scrollbar-track {
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid #ccc;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: linear-gradient(left, #fff, #e4e4e4);
+    border: 1px solid #aaa;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #fff;
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(left, #22ADD4, #1E98BA);
 }

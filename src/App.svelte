@@ -37,11 +37,11 @@
   }
 
   .content {
-    /* grid-area: content; */
-    background-color: #fff;
-    padding: 1rem;
+    grid-area: content;
+    /* background-color: #fff;
+    padding: 1rem; */
     /* overflow-y: scroll; */
-    margin-top: 3rem;
+    /* margin-top: 3rem; */
   }
 
   .sidebar {
@@ -134,18 +134,13 @@
 
   <div class="content">
     {#if currentPage == 1}
-      <div transition:slide>
+      <div transition:slide={{ duration: 250, x: 250, y: 0 }}>
         <MultiColumn />
       </div>
     {:else if currentPage == 2}
-      <div transition:slide>
+      <div transition:slide={{ duration: 250, x: 250, y: 0 }}>
         <ButtonGenerator />
       </div>
-    {:else}
-      <h2>About</h2>
-      <br />
-      <p>Mailchimp content generator 1.0</p>
-      <p>(C) Goran Alković, 2020</p>
     {/if}
   </div>
 </div>

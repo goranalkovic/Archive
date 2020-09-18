@@ -1,5 +1,6 @@
 <script>
   import { slide } from "svelte/transition";
+  import ExpandableItem from "./ExpandableItem.svelte";
   // Style
 
   let stylePanelOpen = false;
@@ -20,8 +21,8 @@
   };
 
   let padding = 18;
-  let buttonMarginV = 0;
-  let buttonMarginH = 0;
+  let buttonMarginV = 4;
+  let buttonMarginH = 4;
   let containerMarginV = 0;
   let containerMarginH = 0;
   let bgColor = "#000000";
@@ -99,162 +100,174 @@
 <style>
 </style>
 
-<h1>Button generator</h1>
+<div class="sidebar-grid">
+  <main>
+    <h1>Button generator</h1>
 
-<h3>Links</h3>
+    <div class="flex">
+      <label for="captions">Captions</label>
+      <label for="urls">URLs</label>
 
-<div class="flex">
-  <label for="captions">Captions</label>
-  <label for="urls">URLs</label>
+      <textarea id="captions" bind:value={buttonCaptions} />
+      <textarea id="urls" bind:value={buttonUrls} />
+    </div>
 
-  <textarea id="captions" bind:value={buttonCaptions} />
-  <textarea id="urls" bind:value={buttonUrls} />
-</div>
+    <h3>Preview</h3>
 
-<h3>Code</h3>
+    <div class="preview">
+      {@html buttonOutputCode}
+    </div>
+  </main>
 
-<textarea
-  transition:slide
-  bind:this={buttonOutputTextArea}
-  style="height: auto; min-height: 6rem"
-  class="output"
-  type="text"
-  readonly
-  bind:value={buttonOutputCode}
-  on:click={buttonSelectCode} />
+  <aside>
+    <ExpandableItem title="Container style">
+      <div class="ctrl-flex">
+        <label for="containerAlign">Alignment</label>
+        <select id="containerAlign" bind:value={containerTextAlign}>
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
 
-<p transition:slide class="copiedToClipboardTxt">{btnCopiedToClipboardTxt}</p>
+      <div class="ctrl-flex">
+        <label for="_">Margin</label>
+        <small style="margin-right: -0.8rem">↔</small>
+        <input type="number" min="0" max="100" bind:value={containerMarginH} />
+        <small style="margin-left: -0.8rem">px</small>
+        <small style="margin-right: -0.8rem">↕</small>
+        <input type="number" min="0" max="100" bind:value={containerMarginV} />
+        <small style="margin-left: -0.8rem">px</small>
+      </div>
+    </ExpandableItem>
 
-<h3>Preview</h3>
+    <ExpandableItem title="Button style">
+      <div style="pointer-events: none">
+        <a href="." style={buttonStyle} target="_blank">Sample button</a>
+      </div>
 
-<div class="preview">
-  {@html buttonOutputCode}
-</div>
+      {#if btnContrastLevel < 4.5}
+        <div transition:slide class="ctrl-flex">
+          <label for="____" />
+          <small class="warning">⚠ Color contrast insufficient ({btnContrastLevel}:1)</small>
+        </div>
+      {/if}
 
-<h3 style="margin-top: 2rem;">Container style</h3>
+      <div class="ctrl-flex">
+        <label for="bgColor">Background color</label>
+        <input
+          type="color"
+          bind:value={bgColor}
+          on:change={() => getContrast()}
+          id="bgColor" />
+        <input
+          style="width: 5rem"
+          type="text"
+          bind:value={bgColor}
+          on:change={() => getContrast()}
+          maxlength="7"
+          minlength="7" />
+      </div>
 
-<div class="ctrl-flex">
-  <label for="containerAlign">Alignment</label>
-  <select id="containerAlign" bind:value={containerTextAlign}>
-    <option value="left">Left</option>
-    <option value="center">Center</option>
-    <option value="right">Right</option>
-  </select>
-</div>
+      <div class="ctrl-flex">
+        <label for="txtColor">Text color</label>
+        <input
+          type="color"
+          bind:value={textColor}
+          on:change={() => getContrast()}
+          id="txtColor"
+          maxlength="7"
+          minlength="7" />
+        <input
+          style="width: 5rem"
+          type="text"
+          bind:value={textColor}
+          on:change={() => getContrast()}
+          pattern="#.{6}" />
+      </div>
 
-<div class="ctrl-flex">
-  <label for="_">Margin</label>
-  <small style="margin-right: -0.8rem">↔</small>
-  <input type="number" min="0" max="100" bind:value={containerMarginH} />
-  <small style="margin-left: -0.8rem">px</small>
-  <small style="margin-right: -0.8rem">↕</small>
-  <input type="number" min="0" max="100" bind:value={containerMarginV} />
-  <small style="margin-left: -0.8rem">px</small>
-</div>
+      <div class="ctrl-flex">
+        <label for="fontFamily">Font</label>
+        <select name="font" id="font" bind:value={font}>
+          {#each Object.entries(fonts) as [key, value], i}
+            <option
+              style="padding: 0.25rem 0.5rem; margin: 0.25rem 0; height: 1.5rem; font-size: 1rem; font-family: {value}"
+              value={key}>
+              {key}
+            </option>
+          {/each}
+        </select>
+        <button
+          class="toggleBtn"
+          class:toggled={isBold}
+          on:click={() => (isBold = !isBold)}>Bold</button>
+        <button
+          class="toggleBtn"
+          class:toggled={isItalic}
+          on:click={() => (isItalic = !isItalic)}>Italic</button>
+      </div>
 
-<h3 style="margin-top: 2rem;">Button style</h3>
+      <div class="ctrl-flex">
+        <label for="padding">Padding</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          bind:value={padding}
+          id="padding" />
+        <small style="margin-left: -0.8rem">px</small>
+      </div>
 
-<div class="ctrl-flex" style="margin-bottom: 2rem">
-  <label for="___"><i>Preview</i></label>
-  <a href="." style={buttonStyle} target="_blank">Sample button</a>
-</div>
+      <div class="ctrl-flex">
+        <label for="__">Margin</label>
+        <small style="margin-right: -0.8rem">↔</small>
+        <input type="number" min="0" max="100" bind:value={buttonMarginH} />
+        <small style="margin-left: -0.8rem">px</small>
+        <small style="margin-right: -0.8rem">↕</small>
+        <input type="number" min="0" max="100" bind:value={buttonMarginV} />
+        <small style="margin-left: -0.8rem">px</small>
+      </div>
 
-{#if btnContrastLevel < 4.5}
-  <div transition:slide class="ctrl-flex">
-    <label for="____" />
-    <small class="warning">⚠ Color contrast insufficient ({btnContrastLevel}:1)</small>
-  </div>
-{/if}
+      <div class="ctrl-flex">
+        <label for="borderRadius">Corner radius</label>
+        <input
+          type="range"
+          min="0"
+          max="50"
+          bind:value={borderRadius}
+          id="borderRadius" />
+        <code>{borderRadius} px</code>
+      </div>
 
-<div class="ctrl-flex">
-  <label for="bgColor">Background color</label>
-  <input
-    type="color"
-    bind:value={bgColor}
-    on:change={() => getContrast()}
-    id="bgColor" />
-  <input
-    style="width: 5rem"
-    type="text"
-    bind:value={bgColor}
-    on:change={() => getContrast()}
-    maxlength="7"
-    minlength="7" />
-</div>
+      <div class="ctrl-flex">
+        <label for="btnWidth">Button width (%)</label>
 
-<div class="ctrl-flex">
-  <label for="txtColor">Text color</label>
-  <input
-    type="color"
-    bind:value={textColor}
-    on:change={() => getContrast()}
-    id="txtColor"
-    maxlength="7"
-    minlength="7" />
-  <input
-    style="width: 5rem"
-    type="text"
-    bind:value={textColor}
-    on:change={() => getContrast()}
-    pattern="#.{6}" />
-</div>
+        <input
+          type="range"
+          min="-1"
+          max="100"
+          bind:value={buttonWidth}
+          id="btnWidth" />
+        <code>{buttonWidth >= 0 ? `${buttonWidth}%` : 'Automatic'}</code>
+      </div>
+    </ExpandableItem>
 
-<div class="ctrl-flex">
-  <label for="fontFamily">Font</label>
-  <select name="font" id="font" bind:value={font}>
-    {#each Object.entries(fonts) as [key, value], i}
-      <option
-        style="padding: 0.25rem 0.5rem; margin: 0.25rem 0; height: 1.5rem; font-size: 1rem; font-family: {value}"
-        value={key}>
-        {key}
-      </option>
-    {/each}
-  </select>
-  <button
-    class="toggleBtn"
-    class:toggled={isBold}
-    on:click={() => (isBold = !isBold)}>Bold</button>
-  <button
-    class="toggleBtn"
-    class:toggled={isItalic}
-    on:click={() => (isItalic = !isItalic)}>Italic</button>
-</div>
+    <div class="item">
+      <span class="section-title">Code</span>
 
-<div class="ctrl-flex">
-  <label for="padding">Padding</label>
-  <input type="number" min="0" max="100" bind:value={padding} id="padding" />
-  <small style="margin-left: -0.8rem">px</small>
-</div>
+      <textarea
+        transition:slide
+        bind:this={buttonOutputTextArea}
+        style="height: auto; min-height: 6rem"
+        class="output"
+        type="text"
+        readonly
+        bind:value={buttonOutputCode}
+        on:click={buttonSelectCode} />
 
-<div class="ctrl-flex">
-  <label for="__">Margin</label>
-  <small style="margin-right: -0.8rem">↔</small>
-  <input type="number" min="0" max="100" bind:value={buttonMarginH} />
-  <small style="margin-left: -0.8rem">px</small>
-  <small style="margin-right: -0.8rem">↕</small>
-  <input type="number" min="0" max="100" bind:value={buttonMarginV} />
-  <small style="margin-left: -0.8rem">px</small>
-</div>
-
-<div class="ctrl-flex">
-  <label for="borderRadius">Corner radius</label>
-  <input
-    type="range"
-    min="0"
-    max="50"
-    bind:value={borderRadius}
-    id="borderRadius" />
-  <code>{borderRadius} px</code>
-</div>
-
-<div class="ctrl-flex">
-  <label for="btnWidth">Button width (%)</label>
-
-  <input
-    type="range"
-    min="-1"
-    max="100"
-    bind:value={buttonWidth}
-    id="btnWidth" />
-  <code>{buttonWidth >= 0 ? `${buttonWidth}%` : 'Automatic'}</code>
+      <p transition:slide class="copiedToClipboardTxt">
+        {btnCopiedToClipboardTxt}
+      </p>
+    </div>
+  </aside>
 </div>
