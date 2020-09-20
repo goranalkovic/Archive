@@ -2337,7 +2337,7 @@ var app = (function () {
     	return child_ctx;
     }
 
-    // (252:4) {#if uploading}
+    // (253:4) {#if uploading}
     function create_if_block_6(ctx) {
     	let div12;
     	let div0;
@@ -2402,33 +2402,33 @@ var app = (function () {
     			t13 = space();
     			br = element("br");
     			attr_dev(div0, "class", "sk-circle1 sk-circle");
-    			add_location(div0, file$2, 253, 8, 6251);
+    			add_location(div0, file$2, 254, 8, 6616);
     			attr_dev(div1, "class", "sk-circle2 sk-circle");
-    			add_location(div1, file$2, 254, 8, 6296);
+    			add_location(div1, file$2, 255, 8, 6661);
     			attr_dev(div2, "class", "sk-circle3 sk-circle");
-    			add_location(div2, file$2, 255, 8, 6341);
+    			add_location(div2, file$2, 256, 8, 6706);
     			attr_dev(div3, "class", "sk-circle4 sk-circle");
-    			add_location(div3, file$2, 256, 8, 6386);
+    			add_location(div3, file$2, 257, 8, 6751);
     			attr_dev(div4, "class", "sk-circle5 sk-circle");
-    			add_location(div4, file$2, 257, 8, 6431);
+    			add_location(div4, file$2, 258, 8, 6796);
     			attr_dev(div5, "class", "sk-circle6 sk-circle");
-    			add_location(div5, file$2, 258, 8, 6476);
+    			add_location(div5, file$2, 259, 8, 6841);
     			attr_dev(div6, "class", "sk-circle7 sk-circle");
-    			add_location(div6, file$2, 259, 8, 6521);
+    			add_location(div6, file$2, 260, 8, 6886);
     			attr_dev(div7, "class", "sk-circle8 sk-circle");
-    			add_location(div7, file$2, 260, 8, 6566);
+    			add_location(div7, file$2, 261, 8, 6931);
     			attr_dev(div8, "class", "sk-circle9 sk-circle");
-    			add_location(div8, file$2, 261, 8, 6611);
+    			add_location(div8, file$2, 262, 8, 6976);
     			attr_dev(div9, "class", "sk-circle10 sk-circle");
-    			add_location(div9, file$2, 262, 8, 6656);
+    			add_location(div9, file$2, 263, 8, 7021);
     			attr_dev(div10, "class", "sk-circle11 sk-circle");
-    			add_location(div10, file$2, 263, 8, 6702);
+    			add_location(div10, file$2, 264, 8, 7067);
     			attr_dev(div11, "class", "sk-circle12 sk-circle");
-    			add_location(div11, file$2, 264, 8, 6748);
+    			add_location(div11, file$2, 265, 8, 7113);
     			attr_dev(div12, "class", "sk-fading-circle");
-    			add_location(div12, file$2, 252, 6, 6195);
-    			add_location(span, file$2, 266, 6, 6805);
-    			add_location(br, file$2, 267, 6, 6834);
+    			add_location(div12, file$2, 253, 6, 6560);
+    			add_location(span, file$2, 267, 6, 7170);
+    			add_location(br, file$2, 268, 6, 7199);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div12, anchor);
@@ -2490,14 +2490,14 @@ var app = (function () {
     		block,
     		id: create_if_block_6.name,
     		type: "if",
-    		source: "(252:4) {#if uploading}",
+    		source: "(253:4) {#if uploading}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (271:4) {#if splitImages.length != splitUrls.length}
+    // (272:4) {#if splitImages.length != splitUrls.length}
     function create_if_block_5(ctx) {
     	let small;
     	let small_transition;
@@ -2510,7 +2510,7 @@ var app = (function () {
     			set_style(small, "margin-top", "0.5rem");
     			set_style(small, "display", "inline-block");
     			attr_dev(small, "class", "warning");
-    			add_location(small, file$2, 271, 6, 6907);
+    			add_location(small, file$2, 272, 6, 7272);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, small, anchor);
@@ -2541,14 +2541,14 @@ var app = (function () {
     		block,
     		id: create_if_block_5.name,
     		type: "if",
-    		source: "(271:4) {#if splitImages.length != splitUrls.length}",
+    		source: "(272:4) {#if splitImages.length != splitUrls.length}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (280:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}
+    // (281:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}
     function create_if_block_4(ctx) {
     	let h3;
     	let h3_transition;
@@ -2565,10 +2565,10 @@ var app = (function () {
     			div = element("div");
     			set_style(h3, "margin", "1rem 0");
     			attr_dev(h3, "class", "svelte-a9jl9f");
-    			add_location(h3, file$2, 280, 6, 7188);
+    			add_location(h3, file$2, 281, 6, 7553);
     			attr_dev(div, "class", "preview");
     			set_style(div, "width", /*maxWidth*/ ctx[17] + "px");
-    			add_location(div, file$2, 281, 6, 7251);
+    			add_location(div, file$2, 282, 6, 7616);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, h3, anchor);
@@ -2618,14 +2618,14 @@ var app = (function () {
     		block,
     		id: create_if_block_4.name,
     		type: "if",
-    		source: "(280:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}",
+    		source: "(281:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (296:6) {:else}
+    // (297:6) {:else}
     function create_else_block(ctx) {
     	let button;
     	let t0;
@@ -2650,11 +2650,11 @@ var app = (function () {
     			t3 = space();
     			if (if_block) if_block.c();
     			if_block_anchor = empty();
-    			add_location(br, file$2, 301, 39, 7863);
+    			add_location(br, file$2, 302, 39, 8228);
     			set_style(small, "opacity", "0.6");
-    			add_location(small, file$2, 302, 10, 7880);
+    			add_location(small, file$2, 303, 10, 8245);
     			attr_dev(button, "class", "connectedBtn svelte-a9jl9f");
-    			add_location(button, file$2, 296, 8, 7702);
+    			add_location(button, file$2, 297, 8, 8067);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -2719,14 +2719,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(296:6) {:else}",
+    		source: "(297:6) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (290:6) {#if connState == null}
+    // (291:6) {#if connState == null}
     function create_if_block_2(ctx) {
     	let button;
     	let t0;
@@ -2744,11 +2744,11 @@ var app = (function () {
     			t1 = space();
     			small = element("small");
     			small.textContent = "For easy uploads";
-    			add_location(br, file$2, 292, 77, 7592);
+    			add_location(br, file$2, 293, 77, 7957);
     			set_style(small, "opacity", "0.6");
-    			add_location(small, file$2, 293, 10, 7609);
+    			add_location(small, file$2, 294, 10, 7974);
     			set_style(button, "text-align", "left");
-    			add_location(button, file$2, 290, 8, 7472);
+    			add_location(button, file$2, 291, 8, 7837);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -2776,14 +2776,14 @@ var app = (function () {
     		block,
     		id: create_if_block_2.name,
     		type: "if",
-    		source: "(290:6) {#if connState == null}",
+    		source: "(291:6) {#if connState == null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (305:8) {#if connState != null}
+    // (306:8) {#if connState != null}
     function create_if_block_3(ctx) {
     	let div;
     	let input;
@@ -2799,10 +2799,10 @@ var app = (function () {
     			attr_dev(input, "type", "file");
     			input.multiple = true;
     			input.disabled = /*uploading*/ ctx[13];
-    			add_location(input, file$2, 306, 12, 8069);
+    			add_location(input, file$2, 307, 12, 8434);
     			attr_dev(div, "class", "ctrl-flex");
     			set_style(div, "align-items", "center");
-    			add_location(div, file$2, 305, 10, 7988);
+    			add_location(div, file$2, 306, 10, 8353);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -2848,14 +2848,14 @@ var app = (function () {
     		block,
     		id: create_if_block_3.name,
     		type: "if",
-    		source: "(305:8) {#if connState != null}",
+    		source: "(306:8) {#if connState != null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (318:4) {#if connState != null}
+    // (319:4) {#if connState != null}
     function create_if_block_1(ctx) {
     	let expandableitem;
     	let current;
@@ -2904,14 +2904,14 @@ var app = (function () {
     		block,
     		id: create_if_block_1.name,
     		type: "if",
-    		source: "(318:4) {#if connState != null}",
+    		source: "(319:4) {#if connState != null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (323:12) {#each folders as folder}
+    // (324:12) {#each folders as folder}
     function create_each_block$1(ctx) {
     	let option;
     	let t0_value = /*folder*/ ctx[76].name + "";
@@ -2935,10 +2935,10 @@ var app = (function () {
     			t3 = text(t3_value);
     			t4 = text(")");
     			t5 = space();
-    			add_location(small, file$2, 325, 16, 8612);
+    			add_location(small, file$2, 326, 16, 8977);
     			option.__value = option_value_value = /*folder*/ ctx[76].id;
     			option.value = option.__value;
-    			add_location(option, file$2, 323, 14, 8539);
+    			add_location(option, file$2, 324, 14, 8904);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -2968,14 +2968,14 @@ var app = (function () {
     		block,
     		id: create_each_block$1.name,
     		type: "each",
-    		source: "(323:12) {#each folders as folder}",
+    		source: "(324:12) {#each folders as folder}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (319:6) <ExpandableItem title="Upload options">
+    // (320:6) <ExpandableItem title="Upload options">
     function create_default_slot_4(ctx) {
     	let div0;
     	let label0;
@@ -3023,21 +3023,21 @@ var app = (function () {
     			t6 = text("Add folder");
     			attr_dev(label0, "for", "folderPicker");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 320, 10, 8409);
+    			add_location(label0, file$2, 321, 10, 8774);
     			attr_dev(select, "id", "folderPicker");
-    			add_location(select, file$2, 321, 10, 8460);
+    			add_location(select, file$2, 322, 10, 8825);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 319, 8, 8375);
+    			add_location(div0, file$2, 320, 8, 8740);
     			attr_dev(label1, "for", "newFolderName");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 332, 10, 8766);
+    			add_location(label1, file$2, 333, 10, 9131);
     			attr_dev(input, "type", "text");
     			attr_dev(input, "id", "newFolderName");
-    			add_location(input, file$2, 333, 10, 8824);
+    			add_location(input, file$2, 334, 10, 9189);
     			button.disabled = button_disabled_value = /*newFolderName*/ ctx[6].length < 1;
-    			add_location(button, file$2, 335, 10, 8903);
+    			add_location(button, file$2, 336, 10, 9268);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 331, 8, 8732);
+    			add_location(div1, file$2, 332, 8, 9097);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3115,14 +3115,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_4.name,
     		type: "slot",
-    		source: "(319:6) <ExpandableItem title=\\\"Upload options\\\">",
+    		source: "(320:6) <ExpandableItem title=\\\"Upload options\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (401:6) {#if columnBetweenBorderThickness > 0}
+    // (402:6) {#if columnBetweenBorderThickness > 0}
     function create_if_block$1(ctx) {
     	let div0;
     	let label0;
@@ -3181,45 +3181,45 @@ var app = (function () {
     			option5.textContent = "Ridge";
     			attr_dev(label0, "for", "bgColor");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 402, 10, 10808);
+    			add_location(label0, file$2, 403, 10, 11173);
     			attr_dev(input0, "type", "color");
     			attr_dev(input0, "id", "bgColor");
-    			add_location(input0, file$2, 403, 10, 10853);
+    			add_location(input0, file$2, 404, 10, 11218);
     			set_style(input1, "width", "5rem");
     			attr_dev(input1, "type", "text");
     			attr_dev(input1, "maxlength", "7");
     			attr_dev(input1, "minlength", "7");
-    			add_location(input1, file$2, 407, 10, 10973);
+    			add_location(input1, file$2, 408, 10, 11338);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 401, 8, 10757);
+    			add_location(div0, file$2, 402, 8, 11122);
     			attr_dev(label1, "for", "containerAlign");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 416, 10, 11216);
+    			add_location(label1, file$2, 417, 10, 11581);
     			attr_dev(div1, "style", div1_style_value = "height: 1px; width :32px; border-bottom: " + /*columnBetweenBorderThickness*/ ctx[7] + "px " + /*columnBetweenBorderStyle*/ ctx[8] + " grey");
-    			add_location(div1, file$2, 417, 10, 11268);
+    			add_location(div1, file$2, 418, 10, 11633);
     			option0.__value = "solid";
     			option0.value = option0.__value;
-    			add_location(option0, file$2, 420, 12, 11491);
+    			add_location(option0, file$2, 421, 12, 11856);
     			option1.__value = "dotted";
     			option1.value = option1.__value;
-    			add_location(option1, file$2, 421, 12, 11540);
+    			add_location(option1, file$2, 422, 12, 11905);
     			option2.__value = "dashed";
     			option2.value = option2.__value;
-    			add_location(option2, file$2, 422, 12, 11591);
+    			add_location(option2, file$2, 423, 12, 11956);
     			option3.__value = "double";
     			option3.value = option3.__value;
-    			add_location(option3, file$2, 423, 12, 11642);
+    			add_location(option3, file$2, 424, 12, 12007);
     			option4.__value = "groove";
     			option4.value = option4.__value;
-    			add_location(option4, file$2, 424, 12, 11693);
+    			add_location(option4, file$2, 425, 12, 12058);
     			option5.__value = "ridge";
     			option5.value = option5.__value;
-    			add_location(option5, file$2, 425, 12, 11744);
+    			add_location(option5, file$2, 426, 12, 12109);
     			attr_dev(select, "id", "containerAlign");
     			if (/*columnBetweenBorderStyle*/ ctx[8] === void 0) add_render_callback(() => /*select_change_handler*/ ctx[44].call(select));
-    			add_location(select, file$2, 419, 10, 11412);
+    			add_location(select, file$2, 420, 10, 11777);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 415, 8, 11165);
+    			add_location(div2, file$2, 416, 8, 11530);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3310,14 +3310,14 @@ var app = (function () {
     		block,
     		id: create_if_block$1.name,
     		type: "if",
-    		source: "(401:6) {#if columnBetweenBorderThickness > 0}",
+    		source: "(402:6) {#if columnBetweenBorderThickness > 0}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (343:4) <ExpandableItem title="Container style">
+    // (344:4) <ExpandableItem title="Container style">
     function create_default_slot_3(ctx) {
     	let div0;
     	let label0;
@@ -3443,62 +3443,62 @@ var app = (function () {
     			if_block_anchor = empty();
     			attr_dev(label0, "for", "maxWidth");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 344, 8, 9153);
+    			add_location(label0, file$2, 345, 8, 9518);
     			attr_dev(input0, "id", "maxWidth");
     			attr_dev(input0, "type", "range");
     			attr_dev(input0, "min", "100");
     			attr_dev(input0, "max", "1200");
-    			add_location(input0, file$2, 345, 8, 9205);
-    			add_location(code0, file$2, 351, 8, 9343);
-    			add_location(code1, file$2, 352, 16, 9386);
-    			add_location(small, file$2, 352, 8, 9378);
+    			add_location(input0, file$2, 346, 8, 9570);
+    			add_location(code0, file$2, 352, 8, 9708);
+    			add_location(code1, file$2, 353, 16, 9751);
+    			add_location(small, file$2, 353, 8, 9743);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 343, 6, 9121);
+    			add_location(div0, file$2, 344, 6, 9486);
     			attr_dev(label1, "for", "colImgsPerRow");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 356, 8, 9484);
+    			add_location(label1, file$2, 357, 8, 9849);
     			attr_dev(input1, "id", "colImgsPerRow");
     			attr_dev(input1, "type", "range");
     			attr_dev(input1, "min", "1");
     			attr_dev(input1, "max", "6");
-    			add_location(input1, file$2, 357, 8, 9542);
-    			add_location(code2, file$2, 363, 8, 9684);
+    			add_location(input1, file$2, 358, 8, 9907);
+    			add_location(code2, file$2, 364, 8, 10049);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 355, 6, 9452);
-    			add_location(h4, file$2, 366, 6, 9732);
+    			add_location(div1, file$2, 356, 6, 9817);
+    			add_location(h4, file$2, 367, 6, 10097);
     			attr_dev(label2, "for", "colBrdrSpcTop");
     			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 369, 8, 9800);
+    			add_location(label2, file$2, 370, 8, 10165);
     			attr_dev(input2, "id", "colBrdrSpcTop");
     			attr_dev(input2, "type", "range");
     			attr_dev(input2, "min", "0");
     			attr_dev(input2, "max", "40");
-    			add_location(input2, file$2, 370, 8, 9855);
-    			add_location(code3, file$2, 376, 8, 10015);
+    			add_location(input2, file$2, 371, 8, 10220);
+    			add_location(code3, file$2, 377, 8, 10380);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 368, 6, 9768);
+    			add_location(div2, file$2, 369, 6, 10133);
     			attr_dev(label3, "for", "colBrdrSpcBtm");
     			attr_dev(label3, "class", "svelte-a9jl9f");
-    			add_location(label3, file$2, 379, 8, 10114);
+    			add_location(label3, file$2, 380, 8, 10479);
     			attr_dev(input3, "id", "colBrdrSpcBtm");
     			attr_dev(input3, "type", "range");
     			attr_dev(input3, "min", "0");
     			attr_dev(input3, "max", "40");
-    			add_location(input3, file$2, 380, 8, 10169);
-    			add_location(code4, file$2, 386, 8, 10332);
+    			add_location(input3, file$2, 381, 8, 10534);
+    			add_location(code4, file$2, 387, 8, 10697);
     			attr_dev(div3, "class", "ctrl-flex");
-    			add_location(div3, file$2, 378, 6, 10082);
+    			add_location(div3, file$2, 379, 6, 10447);
     			attr_dev(label4, "for", "colBrdrThcc");
     			attr_dev(label4, "class", "svelte-a9jl9f");
-    			add_location(label4, file$2, 390, 8, 10435);
+    			add_location(label4, file$2, 391, 8, 10800);
     			attr_dev(input4, "id", "colBrdrThcc");
     			attr_dev(input4, "type", "range");
     			attr_dev(input4, "min", "0");
     			attr_dev(input4, "max", "10");
-    			add_location(input4, file$2, 391, 8, 10486);
-    			add_location(code5, file$2, 397, 8, 10643);
+    			add_location(input4, file$2, 392, 8, 10851);
+    			add_location(code5, file$2, 398, 8, 11008);
     			attr_dev(div4, "class", "ctrl-flex");
-    			add_location(div4, file$2, 389, 6, 10403);
+    			add_location(div4, file$2, 390, 6, 10768);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3668,14 +3668,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_3.name,
     		type: "slot",
-    		source: "(343:4) <ExpandableItem title=\\\"Container style\\\">",
+    		source: "(344:4) <ExpandableItem title=\\\"Container style\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (455:6) <ExpandableItem title="Advanced">
+    // (456:6) <ExpandableItem title="Advanced">
     function create_default_slot_2(ctx) {
     	let div0;
     	let label0;
@@ -3755,44 +3755,44 @@ var app = (function () {
     			code3 = element("code");
     			code3.textContent = `${"{setGap}"}`;
     			t20 = text(" as a placeholder\n            for spacing set above.");
-    			add_location(code0, file$2, 456, 40, 12567);
+    			add_location(code0, file$2, 457, 40, 12932);
     			attr_dev(label0, "for", "astyle");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 456, 10, 12537);
+    			add_location(label0, file$2, 457, 10, 12902);
     			set_style(input0, "font-family", "'Inconsolata', monospace");
     			set_style(input0, "width", "30rem");
     			attr_dev(input0, "type", "text");
     			attr_dev(input0, "id", "astyle");
-    			add_location(input0, file$2, 457, 10, 12605);
+    			add_location(input0, file$2, 458, 10, 12970);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 455, 8, 12486);
-    			add_location(code1, file$2, 465, 42, 12875);
+    			add_location(div0, file$2, 456, 8, 12851);
+    			add_location(code1, file$2, 466, 42, 13240);
     			attr_dev(label1, "for", "imgstyle");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 465, 10, 12843);
+    			add_location(label1, file$2, 466, 10, 13208);
     			set_style(input1, "font-family", "'Inconsolata', monospace");
     			set_style(input1, "width", "30rem");
     			attr_dev(input1, "type", "text");
     			attr_dev(input1, "id", "imgstyle");
-    			add_location(input1, file$2, 466, 10, 12915);
+    			add_location(input1, file$2, 467, 10, 13280);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 464, 8, 12792);
+    			add_location(div1, file$2, 465, 8, 13157);
     			attr_dev(label2, "for", "__");
     			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 474, 10, 13159);
+    			add_location(label2, file$2, 475, 10, 13524);
     			set_style(code2, "color", "var(--accent)");
-    			add_location(code2, file$2, 476, 16, 13224);
-    			add_location(small0, file$2, 475, 10, 13200);
+    			add_location(code2, file$2, 477, 16, 13589);
+    			add_location(small0, file$2, 476, 10, 13565);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 473, 8, 13108);
+    			add_location(div2, file$2, 474, 8, 13473);
     			attr_dev(label3, "for", "___");
     			attr_dev(label3, "class", "svelte-a9jl9f");
-    			add_location(label3, file$2, 481, 10, 13434);
+    			add_location(label3, file$2, 482, 10, 13799);
     			set_style(code3, "color", "var(--accent)");
-    			add_location(code3, file$2, 483, 16, 13500);
-    			add_location(small1, file$2, 482, 10, 13476);
+    			add_location(code3, file$2, 484, 16, 13865);
+    			add_location(small1, file$2, 483, 10, 13841);
     			attr_dev(div3, "class", "ctrl-flex");
-    			add_location(div3, file$2, 480, 8, 13383);
+    			add_location(div3, file$2, 481, 8, 13748);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3905,14 +3905,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_2.name,
     		type: "slot",
-    		source: "(455:6) <ExpandableItem title=\\\"Advanced\\\">",
+    		source: "(456:6) <ExpandableItem title=\\\"Advanced\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (432:4) <ExpandableItem title="Image style">
+    // (433:4) <ExpandableItem title="Image style">
     function create_default_slot_1$1(ctx) {
     	let div0;
     	let label0;
@@ -3971,26 +3971,26 @@ var app = (function () {
     			create_component(expandableitem.$$.fragment);
     			attr_dev(label0, "for", "colHgap");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 433, 8, 11930);
+    			add_location(label0, file$2, 434, 8, 12295);
     			attr_dev(input0, "id", "colHgap");
     			attr_dev(input0, "type", "range");
     			attr_dev(input0, "min", "0");
     			attr_dev(input0, "max", "20");
-    			add_location(input0, file$2, 434, 8, 11986);
-    			add_location(code0, file$2, 440, 8, 12122);
+    			add_location(input0, file$2, 435, 8, 12351);
+    			add_location(code0, file$2, 441, 8, 12487);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 432, 6, 11898);
+    			add_location(div0, file$2, 433, 6, 12263);
     			attr_dev(label1, "for", "colVgap");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 444, 8, 12204);
+    			add_location(label1, file$2, 445, 8, 12569);
     			attr_dev(input1, "id", "colVgap");
     			attr_dev(input1, "type", "range");
     			attr_dev(input1, "min", "0");
     			attr_dev(input1, "max", "20");
-    			add_location(input1, file$2, 445, 8, 12258);
-    			add_location(code1, file$2, 451, 8, 12394);
+    			add_location(input1, file$2, 446, 8, 12623);
+    			add_location(code1, file$2, 452, 8, 12759);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 443, 6, 12172);
+    			add_location(div1, file$2, 444, 6, 12537);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -4071,14 +4071,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_1$1.name,
     		type: "slot",
-    		source: "(432:4) <ExpandableItem title=\\\"Image style\\\">",
+    		source: "(433:4) <ExpandableItem title=\\\"Image style\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (491:4) <ExpandableItem title="Misc">
+    // (492:4) <ExpandableItem title="Misc">
     function create_default_slot$1(ctx) {
     	let div;
     	let small;
@@ -4116,31 +4116,31 @@ var app = (function () {
     			span1 = element("span");
     			span1.textContent = "Add XL dummy data";
     			set_style(small, "margin-right", "0.5rem");
-    			add_location(small, file$2, 492, 8, 13788);
+    			add_location(small, file$2, 493, 8, 14153);
     			set_style(button0, "border-top-right-radius", "0");
     			set_style(button0, "border-bottom-right-radius", "0");
-    			add_location(button0, file$2, 493, 8, 13846);
+    			add_location(button0, file$2, 494, 8, 14211);
     			set_style(button1, "border-radius", "0");
     			set_style(button1, "border-left-width", "0");
     			set_style(button1, "border-right-width", "0");
-    			add_location(button1, file$2, 496, 8, 14001);
+    			add_location(button1, file$2, 497, 8, 14366);
     			set_style(button2, "border-top-left-radius", "0");
     			set_style(button2, "border-bottom-left-radius", "0");
-    			add_location(button2, file$2, 499, 8, 14156);
+    			add_location(button2, file$2, 500, 8, 14521);
     			set_style(div, "display", "flex");
     			set_style(div, "align-items", "baseline");
-    			add_location(div, file$2, 491, 6, 13728);
+    			add_location(div, file$2, 492, 6, 14093);
     			set_style(span0, "opacity", "0.5");
     			set_style(span0, "cursor", "pointer");
     			set_style(span0, "font-size", "0.8rem");
     			set_style(span0, "display", "inline-block");
-    			add_location(span0, file$2, 506, 6, 14372);
+    			add_location(span0, file$2, 507, 6, 14737);
     			set_style(span1, "opacity", "0.5");
     			set_style(span1, "cursor", "pointer");
     			set_style(span1, "font-size", "0.8rem");
     			set_style(span1, "display", "inline-block");
     			set_style(span1, "margin", "0 1rem");
-    			add_location(span1, file$2, 513, 6, 14797);
+    			add_location(span1, file$2, 514, 6, 15162);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -4184,7 +4184,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$1.name,
     		type: "slot",
-    		source: "(491:4) <ExpandableItem title=\\\"Misc\\\">",
+    		source: "(492:4) <ExpandableItem title=\\\"Misc\\\">",
     		ctx
     	});
 
@@ -4355,65 +4355,65 @@ var app = (function () {
     			t30 = space();
     			button1 = element("button");
     			t31 = text("Connect");
-    			add_location(h1, file$2, 239, 4, 5830);
+    			add_location(h1, file$2, 240, 4, 6195);
     			attr_dev(label0, "for", "inputImages");
     			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 242, 6, 5889);
+    			add_location(label0, file$2, 243, 6, 6254);
     			attr_dev(label1, "for", "inputUrls");
     			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 243, 6, 5935);
+    			add_location(label1, file$2, 244, 6, 6300);
     			textarea0.disabled = /*uploading*/ ctx[13];
     			attr_dev(textarea0, "id", "inputImages");
-    			add_location(textarea0, file$2, 244, 6, 5977);
+    			add_location(textarea0, file$2, 245, 6, 6342);
     			textarea1.disabled = /*uploading*/ ctx[13];
     			attr_dev(textarea1, "id", "inputUrls");
-    			add_location(textarea1, file$2, 248, 6, 6084);
+    			add_location(textarea1, file$2, 249, 6, 6449);
     			attr_dev(div0, "class", "flex");
-    			add_location(div0, file$2, 241, 4, 5864);
-    			add_location(main, file$2, 238, 2, 5819);
+    			add_location(div0, file$2, 242, 4, 6229);
+    			add_location(main, file$2, 239, 2, 6184);
     			attr_dev(div1, "class", "item");
-    			add_location(div1, file$2, 288, 4, 7415);
+    			add_location(div1, file$2, 289, 4, 7780);
     			attr_dev(span, "class", "section-title");
-    			add_location(span, file$2, 522, 6, 15494);
+    			add_location(span, file$2, 523, 6, 15859);
     			attr_dev(textarea2, "class", "output");
     			attr_dev(textarea2, "type", "text");
     			textarea2.readOnly = true;
-    			add_location(textarea2, file$2, 524, 6, 15541);
+    			add_location(textarea2, file$2, 525, 6, 15906);
     			attr_dev(p, "class", "copiedToClipboardTxt svelte-a9jl9f");
-    			add_location(p, file$2, 532, 6, 15736);
+    			add_location(p, file$2, 533, 6, 16101);
     			attr_dev(div2, "class", "item");
-    			add_location(div2, file$2, 521, 4, 15469);
+    			add_location(div2, file$2, 522, 4, 15834);
     			attr_dev(aside, "class", "svelte-a9jl9f");
     			toggle_class(aside, "uploading", /*uploading*/ ctx[13]);
-    			add_location(aside, file$2, 287, 2, 7387);
+    			add_location(aside, file$2, 288, 2, 7752);
     			attr_dev(div3, "class", "sidebar-grid");
-    			add_location(div3, file$2, 237, 0, 5790);
+    			add_location(div3, file$2, 238, 0, 6155);
     			attr_dev(h3, "class", "svelte-a9jl9f");
-    			add_location(h3, file$2, 538, 2, 15867);
+    			add_location(h3, file$2, 539, 2, 16232);
     			attr_dev(label2, "for", "apiKeyTxt");
     			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 540, 2, 15887);
+    			add_location(label2, file$2, 541, 2, 16252);
     			set_style(input, "width", "20rem");
     			set_style(input, "font-family", "'Inconsolata', 'SF Mono', Menlo, Consolas, 'Courier New', Courier, monospace");
     			attr_dev(input, "type", "text");
     			attr_dev(input, "class", "apiKeyField");
     			attr_dev(input, "id", "apiKeyTxt");
-    			add_location(input, file$2, 541, 2, 15928);
-    			add_location(br, file$2, 548, 2, 16141);
+    			add_location(input, file$2, 542, 2, 16293);
+    			add_location(br, file$2, 549, 2, 16506);
     			set_style(small, "opacity", "0.6");
     			set_style(small, "cursor", "pointer");
     			set_style(small, "margin-right", "auto");
-    			add_location(small, file$2, 552, 4, 16266);
-    			add_location(button0, file$2, 557, 4, 16442);
+    			add_location(small, file$2, 553, 4, 16631);
+    			add_location(button0, file$2, 558, 4, 16807);
     			button1.disabled = button1_disabled_value = /*apiKey*/ ctx[18].length < 1;
-    			add_location(button1, file$2, 558, 4, 16508);
+    			add_location(button1, file$2, 559, 4, 16873);
     			set_style(div4, "display", "flex");
     			set_style(div4, "gap", "4px");
     			set_style(div4, "justify-content", "flex-end");
     			set_style(div4, "align-items", "center");
     			set_style(div4, "margin-top", "0.5rem");
-    			add_location(div4, file$2, 550, 2, 16151);
-    			add_location(dialog, file$2, 537, 0, 15831);
+    			add_location(div4, file$2, 551, 2, 16516);
+    			add_location(dialog, file$2, 538, 0, 16196);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4739,8 +4739,8 @@ var app = (function () {
     	let uploading = false;
     	let filesToUpload = [];
     	let folders = [];
-    	let imageStyle = "display: inline-block; width: {columnWidth}px; margin: {setGap}; padding: 0; line-height: 1;";
-    	let aStyle = "text-decoration: none; margin: 0; padding: 0; display: inline-block; line-height: 1;";
+    	let imageStyle = "display: block; width: {columnWidth}px; margin: {setGap}; padding: 0; line-height: 1;";
+    	let aStyle = "text-decoration: none; margin: 0; padding: 0; display: block; line-height: 1;";
     	let maxWidth = 600;
     	let apiKey = "";
     	let connState;
@@ -4980,7 +4980,7 @@ var app = (function () {
 
     	function textarea2_input_handler() {
     		columnOutputCode = this.value;
-    		((((((((((((((((((((($$invalidate(25, columnOutputCode), $$invalidate(65, columnItemsChunked)), $$invalidate(66, getColChildItems)), $$invalidate(67, columnBetweenBorder)), $$invalidate(64, columnItems)), $$invalidate(3, imagesPerRow)), $$invalidate(16, aStyle)), $$invalidate(63, parsedImageStyle)), $$invalidate(10, columnBetweenBorderPaddingTop)), $$invalidate(11, columnBetweenBorderPaddingBottom)), $$invalidate(7, columnBetweenBorderThickness)), $$invalidate(8, columnBetweenBorderStyle)), $$invalidate(9, columnBetweenBorderColor)), $$invalidate(23, splitImages)), $$invalidate(24, splitUrls)), $$invalidate(15, imageStyle)), $$invalidate(22, colWidth)), $$invalidate(5, columnsVGap)), $$invalidate(4, columnsHGap)), $$invalidate(0, columnImages)), $$invalidate(1, columnUrls)), $$invalidate(17, maxWidth));
+    		((((((((((((((((((((($$invalidate(25, columnOutputCode), $$invalidate(65, columnItemsChunked)), $$invalidate(66, getColChildItems)), $$invalidate(67, columnBetweenBorder)), $$invalidate(64, columnItems)), $$invalidate(3, imagesPerRow)), $$invalidate(16, aStyle)), $$invalidate(63, parsedImageStyle)), $$invalidate(10, columnBetweenBorderPaddingTop)), $$invalidate(7, columnBetweenBorderThickness)), $$invalidate(8, columnBetweenBorderStyle)), $$invalidate(9, columnBetweenBorderColor)), $$invalidate(11, columnBetweenBorderPaddingBottom)), $$invalidate(23, splitImages)), $$invalidate(24, splitUrls)), $$invalidate(15, imageStyle)), $$invalidate(22, colWidth)), $$invalidate(5, columnsVGap)), $$invalidate(4, columnsHGap)), $$invalidate(0, columnImages)), $$invalidate(1, columnUrls)), $$invalidate(17, maxWidth));
     	}
 
     	function input_input_handler_1() {
@@ -5105,8 +5105,8 @@ var app = (function () {
     	}
 
     	$$self.$$.update = () => {
-    		if ($$self.$$.dirty[0] & /*maxWidth, imagesPerRow, columnsHGap*/ 131096) {
-    			 $$invalidate(22, colWidth = Math.round(maxWidth / imagesPerRow - columnsHGap * imagesPerRow - 6));
+    		if ($$self.$$.dirty[0] & /*maxWidth, imagesPerRow*/ 131080) {
+    			 $$invalidate(22, colWidth = Math.round(maxWidth / imagesPerRow));
     		}
 
     		if ($$self.$$.dirty[0] & /*imageStyle, colWidth, columnsVGap, columnsHGap*/ 4227120) {
@@ -5133,18 +5133,18 @@ var app = (function () {
     		}
 
     		if ($$self.$$.dirty[0] & /*aStyle*/ 65536 | $$self.$$.dirty[2] & /*parsedImageStyle*/ 2) {
-    			 $$invalidate(66, getColChildItems = source => source.map(item => `\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="${parsedImageStyle}" />
-      </a>`).join("\n"));
+    			 $$invalidate(66, getColChildItems = source => source.map(item => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="${parsedImageStyle}" />
+      </a></td>`).join(`\n`));
     		}
 
-    		if ($$self.$$.dirty[0] & /*columnBetweenBorderPaddingTop, columnBetweenBorderPaddingBottom, columnBetweenBorderThickness, columnBetweenBorderStyle, columnBetweenBorderColor*/ 3968) {
-    			 $$invalidate(67, columnBetweenBorder = `\n<div style="height: 1px; display: block; margin-top: ${columnBetweenBorderPaddingTop}px; margin-bottom: ${columnBetweenBorderPaddingBottom}px; ${columnBetweenBorderThickness > 0
+    		if ($$self.$$.dirty[0] & /*imagesPerRow, columnBetweenBorderPaddingTop, columnBetweenBorderThickness, columnBetweenBorderStyle, columnBetweenBorderColor, columnBetweenBorderPaddingBottom*/ 3976) {
+    			 $$invalidate(67, columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingTop}px; height: 0; ${columnBetweenBorderThickness > 0
 			? `border-bottom: ${columnBetweenBorderThickness}px ${columnBetweenBorderStyle} ${columnBetweenBorderColor};`
-			: ""}"></div>`);
+			: "border: 0;"}"></td></tr><tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingBottom}px; height: 0; border: 0;}"></td></tr>`);
     		}
 
     		if ($$self.$$.dirty[2] & /*columnItemsChunked, getColChildItems, columnBetweenBorder*/ 56) {
-    			 $$invalidate(25, columnOutputCode = columnItemsChunked.map(item => `<div class="mcnTextContent" style="text-align: center; margin: 0; padding: 0; line-height: 1;">\n${getColChildItems(item)}\n</div>`).join(`${columnBetweenBorder}\n`));
+    			 $$invalidate(25, columnOutputCode = "<div class=\"mcnTextContent\" style=\"text-align: center; margin: 0; padding: 0; line-height: 0;\"><table style=\"border-collapse: collapse; margin: 0; padding: 0;\">" + columnItemsChunked.map(item => `<tr style="border: 0; padding: 0; margin: 0;">\n${getColChildItems(item)}\n</tr>`).join(`${columnBetweenBorder}\n`) + "</table></div>");
     		}
     	};
 
@@ -5229,7 +5229,7 @@ var app = (function () {
     /* src\App.svelte generated by Svelte v3.24.1 */
     const file$3 = "src\\App.svelte";
 
-    // (114:4) {#if process.platform === 'darwin'}
+    // (152:4) {#if process.platform === 'darwin'}
     function create_if_block_3$1(ctx) {
     	let button;
     	let mounted;
@@ -5240,8 +5240,8 @@ var app = (function () {
     			button = element("button");
     			button.textContent = "✗";
     			set_style(button, "margin-right", "0.25rem");
-    			attr_dev(button, "class", "macCloseBtn svelte-skgqkh");
-    			add_location(button, file$3, 114, 6, 2263);
+    			attr_dev(button, "class", "macCloseBtn svelte-1g2vejw");
+    			add_location(button, file$3, 152, 6, 3118);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -5263,14 +5263,14 @@ var app = (function () {
     		block,
     		id: create_if_block_3$1.name,
     		type: "if",
-    		source: "(114:4) {#if process.platform === 'darwin'}",
+    		source: "(152:4) {#if process.platform === 'darwin'}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (128:4) {#if process.platform !== 'darwin'}
+    // (168:4) {#if process.platform !== 'darwin'}
     function create_if_block_2$1(ctx) {
     	let button;
     	let mounted;
@@ -5279,13 +5279,9 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			button = element("button");
-    			button.textContent = "✗";
-    			set_style(button, "margin-left", "auto");
-    			set_style(button, "font-size", "1.5rem");
-    			set_style(button, "padding-top", "0");
-    			set_style(button, "padding-bottom", "0");
-    			attr_dev(button, "class", "svelte-skgqkh");
-    			add_location(button, file$3, 128, 6, 2684);
+    			button.textContent = "×";
+    			attr_dev(button, "class", "winCloseBtn svelte-1g2vejw");
+    			add_location(button, file$3, 168, 6, 3581);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -5307,14 +5303,14 @@ var app = (function () {
     		block,
     		id: create_if_block_2$1.name,
     		type: "if",
-    		source: "(128:4) {#if process.platform !== 'darwin'}",
+    		source: "(168:4) {#if process.platform !== 'darwin'}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (140:31) 
+    // (178:31) 
     function create_if_block_1$1(ctx) {
     	let div;
     	let buttongenerator;
@@ -5326,7 +5322,7 @@ var app = (function () {
     		c: function create() {
     			div = element("div");
     			create_component(buttongenerator.$$.fragment);
-    			add_location(div, file$3, 140, 6, 3041);
+    			add_location(div, file$3, 178, 6, 3861);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -5361,14 +5357,14 @@ var app = (function () {
     		block,
     		id: create_if_block_1$1.name,
     		type: "if",
-    		source: "(140:31) ",
+    		source: "(178:31) ",
     		ctx
     	});
 
     	return block;
     }
 
-    // (136:4) {#if currentPage == 1}
+    // (174:4) {#if currentPage == 1}
     function create_if_block$2(ctx) {
     	let div;
     	let multicolumn;
@@ -5380,7 +5376,7 @@ var app = (function () {
     		c: function create() {
     			div = element("div");
     			create_component(multicolumn.$$.fragment);
-    			add_location(div, file$3, 136, 6, 2909);
+    			add_location(div, file$3, 174, 6, 3729);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -5415,7 +5411,7 @@ var app = (function () {
     		block,
     		id: create_if_block$2.name,
     		type: "if",
-    		source: "(136:4) {#if currentPage == 1}",
+    		source: "(174:4) {#if currentPage == 1}",
     		ctx
     	});
 
@@ -5468,18 +5464,18 @@ var app = (function () {
     			t5 = space();
     			div1 = element("div");
     			if (if_block2) if_block2.c();
-    			attr_dev(button0, "class", "svelte-skgqkh");
+    			attr_dev(button0, "class", "tabBtn svelte-1g2vejw");
     			toggle_class(button0, "active", /*currentPage*/ ctx[0] == 1);
-    			add_location(button0, file$3, 120, 4, 2404);
-    			attr_dev(button1, "class", "svelte-skgqkh");
+    			add_location(button0, file$3, 158, 4, 3259);
+    			attr_dev(button1, "class", "tabBtn svelte-1g2vejw");
     			toggle_class(button1, "active", /*currentPage*/ ctx[0] == 2);
-    			add_location(button1, file$3, 123, 4, 2524);
-    			attr_dev(div0, "class", "sidebar svelte-skgqkh");
-    			add_location(div0, file$3, 112, 2, 2195);
-    			attr_dev(div1, "class", "content svelte-skgqkh");
-    			add_location(div1, file$3, 134, 2, 2854);
-    			attr_dev(div2, "class", "grid svelte-skgqkh");
-    			add_location(div2, file$3, 111, 0, 2174);
+    			add_location(button1, file$3, 162, 4, 3400);
+    			attr_dev(div0, "class", "sidebar svelte-1g2vejw");
+    			add_location(div0, file$3, 150, 2, 3050);
+    			attr_dev(div1, "class", "content svelte-1g2vejw");
+    			add_location(div1, file$3, 172, 2, 3674);
+    			attr_dev(div2, "class", "grid svelte-1g2vejw");
+    			add_location(div2, file$3, 149, 0, 3029);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");

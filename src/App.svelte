@@ -51,7 +51,7 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.4rem;
+    padding: 0;
     /* background-color: #eee; */
     background-color: hsla(0, 0%, 93%, 0.8);
     min-width: 200px;
@@ -62,7 +62,7 @@
     -webkit-app-region: drag;
   }
 
-  .sidebar button:not(.macCloseBtn) {
+  .sidebar button:not(.macCloseBtn):not(.winCloseBtn) {
     padding: 0.5rem 0.5rem;
     margin: 0;
     border: none;
@@ -72,12 +72,12 @@
     -webkit-app-region: no-drag;
   }
 
-  .sidebar button:hover {
+  .sidebar button:not(.macCloseBtn):not(.winCloseBtn):hover {
     background-color: rgba(20, 20, 20, 0.1);
     color: #000 !important;
   }
 
-  .sidebar button.active {
+  .sidebar button:not(.macCloseBtn):not(.winCloseBtn).active {
     pointer-events: none;
     background-color: #fff;
     color: #000 !important;
@@ -86,26 +86,64 @@
   }
 
   .macCloseBtn {
-    font-size: 1rem;
-    font-weight: 300;
-    margin: 0;
+    margin: 0 0.05rem 0 0.75rem;
     padding: 0;
-    border-radius: 44px;
-    height: 15px;
-    width: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 0;
-    background-color: crimson;
-    color: rgba(255, 255, 255, 0.4);
-    border: none;
+
+    background-color: #ff5c5c;
+    color: #ff5c5c;
+    font-size: 9pt;
+    width: 13px;
+    height: 13px;
+    border: 1px solid #e33e41;
+    border-radius: 50%;
+    display: inline-block;
+    font-weight: 600;
+
     -webkit-app-region: no-drag;
   }
 
+  .macCloseBtn:active {
+    background: #c14645;
+    border: 1px solid #b03537;
+    color: #790004;
+  }
+
   .macCloseBtn:hover {
-    background-color: red;
-    color: #fff;
+    background-color: #ff5c5c !important;
+    color: #b03537 !important;
+  }
+
+  .winCloseBtn {
+    margin: 0 !important;
+    margin-left: auto !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.6rem;
+    font-weight: 200;
+    padding: 0 !important;
+    line-height: 0;
+    height: 48px;
+    width: 56px;
+    -webkit-app-region: no-drag;
+    color: #999;
+    border-radius: 1px !important;
+    border: 0;
+    background-color: transparent;
+  }
+
+  .winCloseBtn:hover {
+    background-color: #e92739 !important;
+    color: #fff !important;
+  }
+
+  .tabBtn {
+    margin: 0.4rem !important;
+    margin-right: 0 !important;
   }
 </style>
 
@@ -119,16 +157,16 @@
     {/if}
 
     <button
+      class="tabBtn"
       on:click={() => (currentPage = 1)}
       class:active={currentPage == 1}>Multi-column images</button>
     <button
+      class="tabBtn"
       on:click={() => (currentPage = 2)}
       class:active={currentPage == 2}>Button generator</button>
 
     {#if process.platform !== 'darwin'}
-      <button
-        style="margin-left: auto; font-size: 1.5rem; padding-top: 0; padding-bottom: 0;"
-        on:click={() => window.close()}>✗</button>
+      <button class="winCloseBtn" on:click={() => window.close()}>×</button>
     {/if}
   </div>
 

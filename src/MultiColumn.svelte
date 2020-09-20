@@ -28,9 +28,9 @@
   let folders = [];
 
   let imageStyle =
-    "display: inline-block; width: {columnWidth}px; margin: {setGap}; padding: 0; line-height: 1;";
+    "display: block; width: {columnWidth}px; margin: {setGap}; padding: 0; line-height: 1;";
   let aStyle =
-    "text-decoration: none; margin: 0; padding: 0; display: inline-block; line-height: 1;";
+    "text-decoration: none; margin: 0; padding: 0; display: block; line-height: 1;";
 
   $: parsedImageStyle = imageStyle
     .replace("{columnWidth}", colWidth)
@@ -42,9 +42,7 @@
   $: splitImages = columnImages.trimEnd().split("\n");
   $: splitUrls = columnUrls.trimEnd().split("\n");
 
-  $: colWidth = Math.round(
-    maxWidth / imagesPerRow - columnsHGap * imagesPerRow - 6
-  );
+  $: colWidth = Math.round(maxWidth / imagesPerRow);
 
   $: columnItems = splitImages.map((i) => {
     let index = splitImages.indexOf(i);
@@ -64,25 +62,28 @@
       .map(
         (
           item
-        ) => `\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="${parsedImageStyle}" />
-      </a>`
+        ) => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="${parsedImageStyle}" />
+      </a></td>`
       )
-      .join("\n");
+      .join(`\n`);
 
-  $: columnOutputCode = columnItemsChunked
-    .map(
-      (item) =>
-        `<div class="mcnTextContent" style="text-align: center; margin: 0; padding: 0; line-height: 1;">\n${getColChildItems(
-          item
-        )}\n</div>`
-    )
-    .join(`${columnBetweenBorder}\n`);
+  $: columnOutputCode =
+    '<div class="mcnTextContent" style="text-align: center; margin: 0; padding: 0; line-height: 0;"><table style="border-collapse: collapse; margin: 0; padding: 0;">' +
+    columnItemsChunked
+      .map(
+        (item) =>
+          `<tr style="border: 0; padding: 0; margin: 0;">\n${getColChildItems(
+            item
+          )}\n</tr>`
+      )
+      .join(`${columnBetweenBorder}\n`) +
+    "</table></div>";
 
-  $: columnBetweenBorder = `\n<div style="height: 1px; display: block; margin-top: ${columnBetweenBorderPaddingTop}px; margin-bottom: ${columnBetweenBorderPaddingBottom}px; ${
+  $: columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingTop}px; height: 0; ${
     columnBetweenBorderThickness > 0
       ? `border-bottom: ${columnBetweenBorderThickness}px ${columnBetweenBorderStyle} ${columnBetweenBorderColor};`
-      : ""
-  }"></div>`;
+      : "border: 0;"
+  }"></td></tr><tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingBottom}px; height: 0; border: 0;}"></td></tr>`;
 
   let columnOutputTextArea;
 
