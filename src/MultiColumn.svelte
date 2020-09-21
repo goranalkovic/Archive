@@ -5,7 +5,6 @@
   var Mailchimp = require("mailchimp-api-v3");
 
   let columnImages = "";
-  let advancedMode = false;
   let columnUrls = "";
   let apiKeyDialog;
   let imagesPerRow = 3;
@@ -32,9 +31,7 @@
   let aStyle =
     "text-decoration: none; margin: 0; padding: 0; display: block; line-height: 1;";
 
-  $: parsedImageStyle = imageStyle
-    .replace("{columnWidth}", colWidth)
-    .replace("{setGap}", `${columnsVGap}px ${columnsHGap}px`);
+  $: parsedImageStyle = imageStyle.replace("{columnWidth}", colWidth);
 
   let maxWidth = 600;
   let apiKey = "";
@@ -42,7 +39,9 @@
   $: splitImages = columnImages.trimEnd().split("\n");
   $: splitUrls = columnUrls.trimEnd().split("\n");
 
-  $: colWidth = Math.round(maxWidth / imagesPerRow);
+  $: colWidth = Math.floor(
+    (maxWidth - (imagesPerRow - 1) * columnsHGap) / imagesPerRow
+  );
 
   $: columnItems = splitImages.map((i) => {
     let index = splitImages.indexOf(i);
@@ -57,15 +56,20 @@
       columnItems.slice(i * imagesPerRow, i * imagesPerRow + imagesPerRow)
     );
 
+  $: columnSeparatorTd =
+    columnsHGap > 0
+      ? `<td style="padding: 0; margin: 0; border: 0; padding: 0 ${columnsHGap}px 0 0;"></td>`
+      : "";
+
   $: getColChildItems = (source) =>
     source
       .map(
         (
           item
-        ) => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="${parsedImageStyle}" />
+        ) => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="padding: 0; margin: 0; display: block; ${parsedImageStyle}" />
       </a></td>`
       )
-      .join(`\n`);
+      .join(`${columnSeparatorTd}\n`);
 
   $: columnOutputCode =
     '<div class="mcnTextContent" style="text-align: center; margin: 0; padding: 0; line-height: 0;"><table style="border-collapse: collapse; margin: 0; padding: 0;">' +
@@ -79,7 +83,9 @@
       .join(`${columnBetweenBorder}\n`) +
     "</table></div>";
 
-  $: columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingTop}px; height: 0; ${
+  $: columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${
+    columnsHGap > 0 ? imagesPerRow + (imagesPerRow - 1) : imagesPerRow
+  }" style="padding: 0; padding-top: ${columnBetweenBorderPaddingTop}px; height: 0; ${
     columnBetweenBorderThickness > 0
       ? `border-bottom: ${columnBetweenBorderThickness}px ${columnBetweenBorderStyle} ${columnBetweenBorderColor};`
       : "border: 0;"
@@ -250,6 +256,8 @@
       <textarea disabled={uploading} id="inputUrls" bind:value={columnUrls} />
     </div>
 
+    <span>{colWidth}px</span>
+
     {#if uploading}
       <div transition:slide class="sk-fading-circle">
         <div class="sk-circle1 sk-circle" />
@@ -341,7 +349,7 @@
       </ExpandableItem>
     {/if}
 
-    <ExpandableItem title="Container style">
+    <ExpandableItem title="Container">
       <div class="ctrl-flex">
         <label for="maxWidth">Maximum width</label>
         <input
@@ -365,10 +373,8 @@
         <code>{imagesPerRow}</code>
       </div>
 
-      <h4>Border between rows</h4>
-
       <div class="ctrl-flex">
-        <label for="colBrdrSpcTop">Space above</label>
+        <label for="colBrdrSpcTop">Space above row</label>
         <input
           id="colBrdrSpcTop"
           type="range"
@@ -378,7 +384,7 @@
         <code>{columnBetweenBorderPaddingTop} px</code>
       </div>
       <div class="ctrl-flex">
-        <label for="colBrdrSpcBtm">Space below</label>
+        <label for="colBrdrSpcBtm">Space below row</label>
         <input
           id="colBrdrSpcBtm"
           type="range"
@@ -389,7 +395,18 @@
       </div>
 
       <div class="ctrl-flex">
-        <label for="colBrdrThcc">Thickness</label>
+        <label for="colHgap">Horizontal gap</label>
+        <input
+          id="colHgap"
+          type="range"
+          min="0"
+          max="32"
+          bind:value={columnsHGap} />
+        <code>{columnsHGap} px</code>
+      </div>
+
+      <div class="ctrl-flex">
+        <label for="colBrdrThcc">Border</label>
         <input
           id="colBrdrThcc"
           type="range"
@@ -401,7 +418,6 @@
 
       {#if columnBetweenBorderThickness > 0}
         <div transition:slide class="ctrl-flex">
-          <label for="bgColor">Color</label>
           <input
             type="color"
             bind:value={columnBetweenBorderColor}
@@ -415,7 +431,6 @@
         </div>
 
         <div transition:slide class="ctrl-flex">
-          <label for="containerAlign">Style</label>
           <div
             style="height: 1px; width :32px; border-bottom: {columnBetweenBorderThickness}px {columnBetweenBorderStyle} grey" />
           <select id="containerAlign" bind:value={columnBetweenBorderStyle}>
@@ -430,63 +445,39 @@
       {/if}
     </ExpandableItem>
 
-    <ExpandableItem title="Image style">
+    <ExpandableItem title="Advanced">
       <div class="ctrl-flex">
-        <label for="colHgap">Horizontal spacing</label>
+        <label for="astyle">Style for <code>a</code> tags</label>
         <input
-          id="colHgap"
-          type="range"
-          min="0"
-          max="20"
-          bind:value={columnsHGap} />
-        <code>{columnsHGap} px</code>
+          style="font-family: 'Inconsolata', monospace; width: 30rem;"
+          type="text"
+          bind:value={aStyle}
+          id="astyle" />
       </div>
 
       <div class="ctrl-flex">
-        <label for="colVgap">Vertical spacing</label>
+        <label for="imgstyle">Style for <code>img</code> tags</label>
         <input
-          id="colVgap"
-          type="range"
-          min="0"
-          max="20"
-          bind:value={columnsVGap} />
-        <code>{columnsVGap} px</code>
+          style="font-family: 'Inconsolata', monospace; width: 30rem;"
+          type="text"
+          bind:value={imageStyle}
+          id="imgstyle" />
       </div>
 
-      <ExpandableItem title="Advanced">
-        <div class="ctrl-flex" transition:slide>
-          <label for="astyle">Style for <code>a</code> tags</label>
-          <input
-            style="font-family: 'Inconsolata', monospace; width: 30rem;"
-            type="text"
-            bind:value={aStyle}
-            id="astyle" />
-        </div>
-
-        <div class="ctrl-flex" transition:slide>
-          <label for="imgstyle">Style for <code>img</code> tags</label>
-          <input
-            style="font-family: 'Inconsolata', monospace; width: 30rem;"
-            type="text"
-            bind:value={imageStyle}
-            id="imgstyle" />
-        </div>
-
-        <div class="ctrl-flex" transition:slide>
-          <label for="__">&nbsp;</label>
-          <small>
-            Use <code style="color: var(--accent)">{'{columnWidth}'}</code> as a
-            placeholder for the actual image width.
-          </small>
-        </div>
-        <div class="ctrl-flex" transition:slide>
-          <label for="___">&nbsp;</label>
-          <small>
-            Use <code style="color: var(--accent)">{'{setGap}'}</code> as a placeholder
-            for spacing set above.
-          </small>
-        </div>
-      </ExpandableItem>
+      <div class="ctrl-flex">
+        <label for="__">&nbsp;</label>
+        <small>
+          Use <code style="color: var(--accent)">{'{columnWidth}'}</code> as a placeholder
+          for the actual image width.
+        </small>
+      </div>
+      <div class="ctrl-flex">
+        <label for="___">&nbsp;</label>
+        <small>
+          Use <code style="color: var(--accent)">{'{setGap}'}</code> as a placeholder
+          for spacing set above.
+        </small>
+      </div>
     </ExpandableItem>
 
     <ExpandableItem title="Misc">
