@@ -140,6 +140,13 @@ var app = (function () {
         node.addEventListener(event, handler, options);
         return () => node.removeEventListener(event, handler, options);
     }
+    function prevent_default(fn) {
+        return function (event) {
+            event.preventDefault();
+            // @ts-ignore
+            return fn.call(this, event);
+        };
+    }
     function attr(node, attribute, value) {
         if (value == null)
             node.removeAttribute(attribute);
@@ -239,6 +246,75 @@ var app = (function () {
             });
             active_docs.clear();
         });
+    }
+
+    function create_animation(node, from, fn, params) {
+        if (!from)
+            return noop;
+        const to = node.getBoundingClientRect();
+        if (from.left === to.left && from.right === to.right && from.top === to.top && from.bottom === to.bottom)
+            return noop;
+        const { delay = 0, duration = 300, easing = identity, 
+        // @ts-ignore todo: should this be separated from destructuring? Or start/end added to public api and documentation?
+        start: start_time = now() + delay, 
+        // @ts-ignore todo:
+        end = start_time + duration, tick = noop, css } = fn(node, { from, to }, params);
+        let running = true;
+        let started = false;
+        let name;
+        function start() {
+            if (css) {
+                name = create_rule(node, 0, 1, duration, delay, easing, css);
+            }
+            if (!delay) {
+                started = true;
+            }
+        }
+        function stop() {
+            if (css)
+                delete_rule(node, name);
+            running = false;
+        }
+        loop(now => {
+            if (!started && now >= start_time) {
+                started = true;
+            }
+            if (started && now >= end) {
+                tick(1, 0);
+                stop();
+            }
+            if (!running) {
+                return false;
+            }
+            if (started) {
+                const p = now - start_time;
+                const t = 0 + 1 * easing(p / duration);
+                tick(t, 1 - t);
+            }
+            return true;
+        });
+        start();
+        tick(0, 1);
+        return stop;
+    }
+    function fix_position(node) {
+        const style = getComputedStyle(node);
+        if (style.position !== 'absolute' && style.position !== 'fixed') {
+            const { width, height } = style;
+            const a = node.getBoundingClientRect();
+            node.style.position = 'absolute';
+            node.style.width = width;
+            node.style.height = height;
+            add_transform(node, a);
+        }
+    }
+    function add_transform(node, a) {
+        const b = node.getBoundingClientRect();
+        if (a.left !== b.left || a.top !== b.top) {
+            const style = getComputedStyle(node);
+            const transform = style.transform === 'none' ? '' : style.transform;
+            node.style.transform = `${transform} translate(${a.left - b.left}px, ${a.top - b.top}px)`;
+        }
     }
 
     let current_component;
@@ -471,6 +547,100 @@ var app = (function () {
         : typeof globalThis !== 'undefined'
             ? globalThis
             : global);
+
+    function destroy_block(block, lookup) {
+        block.d(1);
+        lookup.delete(block.key);
+    }
+    function fix_and_destroy_block(block, lookup) {
+        block.f();
+        destroy_block(block, lookup);
+    }
+    function update_keyed_each(old_blocks, dirty, get_key, dynamic, ctx, list, lookup, node, destroy, create_each_block, next, get_context) {
+        let o = old_blocks.length;
+        let n = list.length;
+        let i = o;
+        const old_indexes = {};
+        while (i--)
+            old_indexes[old_blocks[i].key] = i;
+        const new_blocks = [];
+        const new_lookup = new Map();
+        const deltas = new Map();
+        i = n;
+        while (i--) {
+            const child_ctx = get_context(ctx, list, i);
+            const key = get_key(child_ctx);
+            let block = lookup.get(key);
+            if (!block) {
+                block = create_each_block(key, child_ctx);
+                block.c();
+            }
+            else if (dynamic) {
+                block.p(child_ctx, dirty);
+            }
+            new_lookup.set(key, new_blocks[i] = block);
+            if (key in old_indexes)
+                deltas.set(key, Math.abs(i - old_indexes[key]));
+        }
+        const will_move = new Set();
+        const did_move = new Set();
+        function insert(block) {
+            transition_in(block, 1);
+            block.m(node, next);
+            lookup.set(block.key, block);
+            next = block.first;
+            n--;
+        }
+        while (o && n) {
+            const new_block = new_blocks[n - 1];
+            const old_block = old_blocks[o - 1];
+            const new_key = new_block.key;
+            const old_key = old_block.key;
+            if (new_block === old_block) {
+                // do nothing
+                next = new_block.first;
+                o--;
+                n--;
+            }
+            else if (!new_lookup.has(old_key)) {
+                // remove old block
+                destroy(old_block, lookup);
+                o--;
+            }
+            else if (!lookup.has(new_key) || will_move.has(new_key)) {
+                insert(new_block);
+            }
+            else if (did_move.has(old_key)) {
+                o--;
+            }
+            else if (deltas.get(new_key) > deltas.get(old_key)) {
+                did_move.add(new_key);
+                insert(new_block);
+            }
+            else {
+                will_move.add(old_key);
+                o--;
+            }
+        }
+        while (o--) {
+            const old_block = old_blocks[o];
+            if (!new_lookup.has(old_block.key))
+                destroy(old_block, lookup);
+        }
+        while (n)
+            insert(new_blocks[n - 1]);
+        return new_blocks;
+    }
+    function validate_each_keys(ctx, list, get_context, get_key) {
+        const keys = new Set();
+        for (let i = 0; i < list.length; i++) {
+            const key = get_key(get_context(ctx, list, i));
+            if (keys.has(key)) {
+                throw new Error(`Cannot have duplicate keys in a keyed each`);
+            }
+            keys.add(key);
+        }
+    }
     function create_component(block) {
         block && block.c();
     }
@@ -2326,6 +2496,23 @@ var app = (function () {
     	}
     }
 
+    function flip(node, animation, params) {
+        const style = getComputedStyle(node);
+        const transform = style.transform === 'none' ? '' : style.transform;
+        const scaleX = animation.from.width / node.clientWidth;
+        const scaleY = animation.from.height / node.clientHeight;
+        const dx = (animation.from.left - animation.to.left) / scaleX;
+        const dy = (animation.from.top - animation.to.top) / scaleY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const { delay = 0, duration = (d) => Math.sqrt(d) * 120, easing = cubicOut } = params;
+        return {
+            delay,
+            duration: is_function(duration) ? duration(d) : duration,
+            easing,
+            css: (_t, u) => `transform: ${transform} translate(${u * dx}px, ${u * dy}px);`
+        };
+    }
+
     /* src/MultiColumn.svelte generated by Svelte v3.24.1 */
 
     const { console: console_1 } = globals;
@@ -2333,11 +2520,18 @@ var app = (function () {
 
     function get_each_context$1(ctx, list, i) {
     	const child_ctx = ctx.slice();
-    	child_ctx[75] = list[i];
+    	child_ctx[86] = list[i];
     	return child_ctx;
     }
 
-    // (261:4) {#if uploading}
+    function get_each_context_1(ctx, list, i) {
+    	const child_ctx = ctx.slice();
+    	child_ctx[89] = list[i];
+    	child_ctx[91] = i;
+    	return child_ctx;
+    }
+
+    // (305:4) {#if uploading}
     function create_if_block_6(ctx) {
     	let div12;
     	let div0;
@@ -2402,33 +2596,33 @@ var app = (function () {
     			t13 = space();
     			br = element("br");
     			attr_dev(div0, "class", "sk-circle1 sk-circle");
-    			add_location(div0, file$2, 262, 8, 6871);
+    			add_location(div0, file$2, 306, 8, 7738);
     			attr_dev(div1, "class", "sk-circle2 sk-circle");
-    			add_location(div1, file$2, 263, 8, 6916);
+    			add_location(div1, file$2, 307, 8, 7783);
     			attr_dev(div2, "class", "sk-circle3 sk-circle");
-    			add_location(div2, file$2, 264, 8, 6961);
+    			add_location(div2, file$2, 308, 8, 7828);
     			attr_dev(div3, "class", "sk-circle4 sk-circle");
-    			add_location(div3, file$2, 265, 8, 7006);
+    			add_location(div3, file$2, 309, 8, 7873);
     			attr_dev(div4, "class", "sk-circle5 sk-circle");
-    			add_location(div4, file$2, 266, 8, 7051);
+    			add_location(div4, file$2, 310, 8, 7918);
     			attr_dev(div5, "class", "sk-circle6 sk-circle");
-    			add_location(div5, file$2, 267, 8, 7096);
+    			add_location(div5, file$2, 311, 8, 7963);
     			attr_dev(div6, "class", "sk-circle7 sk-circle");
-    			add_location(div6, file$2, 268, 8, 7141);
+    			add_location(div6, file$2, 312, 8, 8008);
     			attr_dev(div7, "class", "sk-circle8 sk-circle");
-    			add_location(div7, file$2, 269, 8, 7186);
+    			add_location(div7, file$2, 313, 8, 8053);
     			attr_dev(div8, "class", "sk-circle9 sk-circle");
-    			add_location(div8, file$2, 270, 8, 7231);
+    			add_location(div8, file$2, 314, 8, 8098);
     			attr_dev(div9, "class", "sk-circle10 sk-circle");
-    			add_location(div9, file$2, 271, 8, 7276);
+    			add_location(div9, file$2, 315, 8, 8143);
     			attr_dev(div10, "class", "sk-circle11 sk-circle");
-    			add_location(div10, file$2, 272, 8, 7322);
+    			add_location(div10, file$2, 316, 8, 8189);
     			attr_dev(div11, "class", "sk-circle12 sk-circle");
-    			add_location(div11, file$2, 273, 8, 7368);
+    			add_location(div11, file$2, 317, 8, 8235);
     			attr_dev(div12, "class", "sk-fading-circle");
-    			add_location(div12, file$2, 261, 6, 6815);
-    			add_location(span, file$2, 275, 6, 7425);
-    			add_location(br, file$2, 276, 6, 7454);
+    			add_location(div12, file$2, 305, 6, 7682);
+    			add_location(span, file$2, 319, 6, 8292);
+    			add_location(br, file$2, 320, 6, 8321);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div12, anchor);
@@ -2490,14 +2684,121 @@ var app = (function () {
     		block,
     		id: create_if_block_6.name,
     		type: "if",
-    		source: "(261:4) {#if uploading}",
+    		source: "(305:4) {#if uploading}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (280:4) {#if splitImages.length != splitUrls.length}
+    // (325:6) {#each columnImgData as n, index  (n.id)}
+    function create_each_block_1(key_1, ctx) {
+    	let div;
+    	let a;
+    	let img;
+    	let img_src_value;
+    	let a_href_value;
+    	let t;
+    	let div_draggable_value;
+    	let rect;
+    	let stop_animation = noop;
+    	let mounted;
+    	let dispose;
+
+    	function dragstart_handler(...args) {
+    		return /*dragstart_handler*/ ctx[34](/*index*/ ctx[91], ...args);
+    	}
+
+    	function drop_handler(...args) {
+    		return /*drop_handler*/ ctx[35](/*index*/ ctx[91], ...args);
+    	}
+
+    	function dragenter_handler(...args) {
+    		return /*dragenter_handler*/ ctx[36](/*index*/ ctx[91], ...args);
+    	}
+
+    	const block = {
+    		key: key_1,
+    		first: null,
+    		c: function create() {
+    			div = element("div");
+    			a = element("a");
+    			img = element("img");
+    			t = space();
+    			if (img.src !== (img_src_value = /*n*/ ctx[89].img)) attr_dev(img, "src", img_src_value);
+    			attr_dev(img, "alt", "Test");
+    			attr_dev(img, "class", "svelte-1krhie2");
+    			add_location(img, file$2, 335, 12, 8885);
+    			attr_dev(a, "href", a_href_value = /*n*/ ctx[89].url);
+    			add_location(a, file$2, 334, 11, 8854);
+    			attr_dev(div, "class", "list-item svelte-1krhie2");
+    			attr_dev(div, "draggable", div_draggable_value = true);
+    			attr_dev(div, "ondragover", "return false");
+    			toggle_class(div, "is-active", /*hovering*/ ctx[7] === /*index*/ ctx[91]);
+    			add_location(div, file$2, 325, 8, 8479);
+    			this.first = div;
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, div, anchor);
+    			append_dev(div, a);
+    			append_dev(a, img);
+    			append_dev(div, t);
+
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(div, "dragstart", dragstart_handler, false, false, false),
+    					listen_dev(div, "drop", prevent_default(drop_handler), false, true, false),
+    					listen_dev(div, "dragenter", dragenter_handler, false, false, false)
+    				];
+
+    				mounted = true;
+    			}
+    		},
+    		p: function update(new_ctx, dirty) {
+    			ctx = new_ctx;
+
+    			if (dirty[0] & /*columnImgData*/ 256 && img.src !== (img_src_value = /*n*/ ctx[89].img)) {
+    				attr_dev(img, "src", img_src_value);
+    			}
+
+    			if (dirty[0] & /*columnImgData*/ 256 && a_href_value !== (a_href_value = /*n*/ ctx[89].url)) {
+    				attr_dev(a, "href", a_href_value);
+    			}
+
+    			if (dirty[0] & /*hovering, columnImgData*/ 384) {
+    				toggle_class(div, "is-active", /*hovering*/ ctx[7] === /*index*/ ctx[91]);
+    			}
+    		},
+    		r: function measure() {
+    			rect = div.getBoundingClientRect();
+    		},
+    		f: function fix() {
+    			fix_position(div);
+    			stop_animation();
+    		},
+    		a: function animate() {
+    			stop_animation();
+    			stop_animation = create_animation(div, rect, flip, { duration: 250 });
+    		},
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(div);
+    			mounted = false;
+    			run_all(dispose);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_each_block_1.name,
+    		type: "each",
+    		source: "(325:6) {#each columnImgData as n, index  (n.id)}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (342:4) {#if splitImages.length != splitUrls.length}
     function create_if_block_5(ctx) {
     	let small;
     	let small_transition;
@@ -2510,7 +2811,7 @@ var app = (function () {
     			set_style(small, "margin-top", "0.5rem");
     			set_style(small, "display", "inline-block");
     			attr_dev(small, "class", "warning");
-    			add_location(small, file$2, 280, 6, 7527);
+    			add_location(small, file$2, 342, 6, 9028);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, small, anchor);
@@ -2541,14 +2842,14 @@ var app = (function () {
     		block,
     		id: create_if_block_5.name,
     		type: "if",
-    		source: "(280:4) {#if splitImages.length != splitUrls.length}",
+    		source: "(342:4) {#if splitImages.length != splitUrls.length}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (289:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}
+    // (351:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}
     function create_if_block_4(ctx) {
     	let h3;
     	let h3_transition;
@@ -2564,23 +2865,23 @@ var app = (function () {
     			t1 = space();
     			div = element("div");
     			set_style(h3, "margin", "1rem 0");
-    			attr_dev(h3, "class", "svelte-a9jl9f");
-    			add_location(h3, file$2, 289, 6, 7808);
+    			attr_dev(h3, "class", "svelte-1krhie2");
+    			add_location(h3, file$2, 351, 6, 9309);
     			attr_dev(div, "class", "preview");
-    			set_style(div, "width", /*maxWidth*/ ctx[16] + "px");
-    			add_location(div, file$2, 290, 6, 7871);
+    			set_style(div, "width", /*maxWidth*/ ctx[19] + "px");
+    			add_location(div, file$2, 352, 6, 9372);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, h3, anchor);
     			insert_dev(target, t1, anchor);
     			insert_dev(target, div, anchor);
-    			div.innerHTML = /*columnOutputCode*/ ctx[24];
+    			div.innerHTML = /*columnOutputCode*/ ctx[27];
     			current = true;
     		},
     		p: function update(ctx, dirty) {
-    			if (!current || dirty[0] & /*columnOutputCode*/ 16777216) div.innerHTML = /*columnOutputCode*/ ctx[24];
-    			if (!current || dirty[0] & /*maxWidth*/ 65536) {
-    				set_style(div, "width", /*maxWidth*/ ctx[16] + "px");
+    			if (!current || dirty[0] & /*columnOutputCode*/ 134217728) div.innerHTML = /*columnOutputCode*/ ctx[27];
+    			if (!current || dirty[0] & /*maxWidth*/ 524288) {
+    				set_style(div, "width", /*maxWidth*/ ctx[19] + "px");
     			}
     		},
     		i: function intro(local) {
@@ -2618,14 +2919,14 @@ var app = (function () {
     		block,
     		id: create_if_block_4.name,
     		type: "if",
-    		source: "(289:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}",
+    		source: "(351:4) {#if splitImages.length > 0 && columnImages.length > 0 && !uploading}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (305:6) {:else}
+    // (367:6) {:else}
     function create_else_block(ctx) {
     	let button;
     	let t0;
@@ -2637,7 +2938,7 @@ var app = (function () {
     	let current;
     	let mounted;
     	let dispose;
-    	let if_block = /*connState*/ ctx[18] != null && create_if_block_3(ctx);
+    	let if_block = /*connState*/ ctx[21] != null && create_if_block_3(ctx);
 
     	const block = {
     		c: function create() {
@@ -2650,11 +2951,11 @@ var app = (function () {
     			t3 = space();
     			if (if_block) if_block.c();
     			if_block_anchor = empty();
-    			add_location(br, file$2, 310, 39, 8483);
+    			add_location(br, file$2, 372, 39, 9984);
     			set_style(small, "opacity", "0.6");
-    			add_location(small, file$2, 311, 10, 8500);
-    			attr_dev(button, "class", "connectedBtn svelte-a9jl9f");
-    			add_location(button, file$2, 305, 8, 8322);
+    			add_location(small, file$2, 373, 10, 10001);
+    			attr_dev(button, "class", "connectedBtn svelte-1krhie2");
+    			add_location(button, file$2, 367, 8, 9823);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -2668,16 +2969,16 @@ var app = (function () {
     			current = true;
 
     			if (!mounted) {
-    				dispose = listen_dev(button, "click", /*click_handler_1*/ ctx[32], false, false, false);
+    				dispose = listen_dev(button, "click", /*click_handler_1*/ ctx[38], false, false, false);
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (/*connState*/ ctx[18] != null) {
+    			if (/*connState*/ ctx[21] != null) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
 
-    					if (dirty[0] & /*connState*/ 262144) {
+    					if (dirty[0] & /*connState*/ 2097152) {
     						transition_in(if_block, 1);
     					}
     				} else {
@@ -2719,14 +3020,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(305:6) {:else}",
+    		source: "(367:6) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (299:6) {#if connState == null}
+    // (361:6) {#if connState == null}
     function create_if_block_2(ctx) {
     	let button;
     	let t0;
@@ -2744,11 +3045,11 @@ var app = (function () {
     			t1 = space();
     			small = element("small");
     			small.textContent = "For easy uploads";
-    			add_location(br, file$2, 301, 77, 8212);
+    			add_location(br, file$2, 363, 77, 9713);
     			set_style(small, "opacity", "0.6");
-    			add_location(small, file$2, 302, 10, 8229);
+    			add_location(small, file$2, 364, 10, 9730);
     			set_style(button, "text-align", "left");
-    			add_location(button, file$2, 299, 8, 8092);
+    			add_location(button, file$2, 361, 8, 9593);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -2758,7 +3059,7 @@ var app = (function () {
     			append_dev(button, small);
 
     			if (!mounted) {
-    				dispose = listen_dev(button, "click", /*click_handler*/ ctx[31], false, false, false);
+    				dispose = listen_dev(button, "click", /*click_handler*/ ctx[37], false, false, false);
     				mounted = true;
     			}
     		},
@@ -2776,14 +3077,14 @@ var app = (function () {
     		block,
     		id: create_if_block_2.name,
     		type: "if",
-    		source: "(299:6) {#if connState == null}",
+    		source: "(361:6) {#if connState == null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (314:8) {#if connState != null}
+    // (376:8) {#if connState != null}
     function create_if_block_3(ctx) {
     	let div;
     	let input;
@@ -2798,26 +3099,26 @@ var app = (function () {
     			input = element("input");
     			attr_dev(input, "type", "file");
     			input.multiple = true;
-    			input.disabled = /*uploading*/ ctx[12];
-    			add_location(input, file$2, 315, 12, 8689);
+    			input.disabled = /*uploading*/ ctx[15];
+    			add_location(input, file$2, 377, 12, 10190);
     			attr_dev(div, "class", "ctrl-flex");
     			set_style(div, "align-items", "center");
-    			add_location(div, file$2, 314, 10, 8608);
+    			add_location(div, file$2, 376, 10, 10109);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
     			append_dev(div, input);
-    			/*input_binding*/ ctx[33](input);
+    			/*input_binding*/ ctx[39](input);
     			current = true;
 
     			if (!mounted) {
-    				dispose = listen_dev(input, "change", /*toBase64*/ ctx[26], false, false, false);
+    				dispose = listen_dev(input, "change", /*toBase64*/ ctx[31], false, false, false);
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (!current || dirty[0] & /*uploading*/ 4096) {
-    				prop_dev(input, "disabled", /*uploading*/ ctx[12]);
+    			if (!current || dirty[0] & /*uploading*/ 32768) {
+    				prop_dev(input, "disabled", /*uploading*/ ctx[15]);
     			}
     		},
     		i: function intro(local) {
@@ -2837,7 +3138,7 @@ var app = (function () {
     		},
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div);
-    			/*input_binding*/ ctx[33](null);
+    			/*input_binding*/ ctx[39](null);
     			if (detaching && div_transition) div_transition.end();
     			mounted = false;
     			dispose();
@@ -2848,14 +3149,14 @@ var app = (function () {
     		block,
     		id: create_if_block_3.name,
     		type: "if",
-    		source: "(314:8) {#if connState != null}",
+    		source: "(376:8) {#if connState != null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (327:4) {#if connState != null}
+    // (391:4) {#if connState != null}
     function create_if_block_1(ctx) {
     	let expandableitem;
     	let current;
@@ -2880,7 +3181,7 @@ var app = (function () {
     		p: function update(ctx, dirty) {
     			const expandableitem_changes = {};
 
-    			if (dirty[0] & /*newFolderName, folders*/ 8224 | dirty[2] & /*$$scope*/ 65536) {
+    			if (dirty[0] & /*newFolderName, folders*/ 65568 | dirty[2] & /*$$scope*/ 1073741824) {
     				expandableitem_changes.$$scope = { dirty, ctx };
     			}
 
@@ -2904,22 +3205,22 @@ var app = (function () {
     		block,
     		id: create_if_block_1.name,
     		type: "if",
-    		source: "(327:4) {#if connState != null}",
+    		source: "(391:4) {#if connState != null}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (332:12) {#each folders as folder}
+    // (396:12) {#each folders as folder}
     function create_each_block$1(ctx) {
     	let option;
-    	let t0_value = /*folder*/ ctx[75].name + "";
+    	let t0_value = /*folder*/ ctx[86].name + "";
     	let t0;
     	let t1;
     	let small;
     	let t2;
-    	let t3_value = /*folder*/ ctx[75].id + "";
+    	let t3_value = /*folder*/ ctx[86].id + "";
     	let t3;
     	let t4;
     	let t5;
@@ -2935,10 +3236,10 @@ var app = (function () {
     			t3 = text(t3_value);
     			t4 = text(")");
     			t5 = space();
-    			add_location(small, file$2, 334, 16, 9232);
-    			option.__value = option_value_value = /*folder*/ ctx[75].id;
+    			add_location(small, file$2, 398, 16, 10810);
+    			option.__value = option_value_value = /*folder*/ ctx[86].id;
     			option.value = option.__value;
-    			add_location(option, file$2, 332, 14, 9159);
+    			add_location(option, file$2, 396, 14, 10737);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, option, anchor);
@@ -2951,10 +3252,10 @@ var app = (function () {
     			append_dev(option, t5);
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty[0] & /*folders*/ 8192 && t0_value !== (t0_value = /*folder*/ ctx[75].name + "")) set_data_dev(t0, t0_value);
-    			if (dirty[0] & /*folders*/ 8192 && t3_value !== (t3_value = /*folder*/ ctx[75].id + "")) set_data_dev(t3, t3_value);
+    			if (dirty[0] & /*folders*/ 65536 && t0_value !== (t0_value = /*folder*/ ctx[86].name + "")) set_data_dev(t0, t0_value);
+    			if (dirty[0] & /*folders*/ 65536 && t3_value !== (t3_value = /*folder*/ ctx[86].id + "")) set_data_dev(t3, t3_value);
 
-    			if (dirty[0] & /*folders*/ 8192 && option_value_value !== (option_value_value = /*folder*/ ctx[75].id)) {
+    			if (dirty[0] & /*folders*/ 65536 && option_value_value !== (option_value_value = /*folder*/ ctx[86].id)) {
     				prop_dev(option, "__value", option_value_value);
     				option.value = option.__value;
     			}
@@ -2968,14 +3269,14 @@ var app = (function () {
     		block,
     		id: create_each_block$1.name,
     		type: "each",
-    		source: "(332:12) {#each folders as folder}",
+    		source: "(396:12) {#each folders as folder}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (328:6) <ExpandableItem title="Upload options">
+    // (392:6) <ExpandableItem title="Upload options">
     function create_default_slot_3(ctx) {
     	let div0;
     	let label0;
@@ -2992,7 +3293,7 @@ var app = (function () {
     	let button_disabled_value;
     	let mounted;
     	let dispose;
-    	let each_value = /*folders*/ ctx[13];
+    	let each_value = /*folders*/ ctx[16];
     	validate_each_argument(each_value);
     	let each_blocks = [];
 
@@ -3022,22 +3323,22 @@ var app = (function () {
     			button = element("button");
     			t6 = text("Add folder");
     			attr_dev(label0, "for", "folderPicker");
-    			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 329, 10, 9029);
+    			attr_dev(label0, "class", "svelte-1krhie2");
+    			add_location(label0, file$2, 393, 10, 10607);
     			attr_dev(select, "id", "folderPicker");
-    			add_location(select, file$2, 330, 10, 9080);
+    			add_location(select, file$2, 394, 10, 10658);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 328, 8, 8995);
+    			add_location(div0, file$2, 392, 8, 10573);
     			attr_dev(label1, "for", "newFolderName");
-    			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 341, 10, 9386);
+    			attr_dev(label1, "class", "svelte-1krhie2");
+    			add_location(label1, file$2, 405, 10, 10964);
     			attr_dev(input, "type", "text");
     			attr_dev(input, "id", "newFolderName");
-    			add_location(input, file$2, 342, 10, 9444);
+    			add_location(input, file$2, 406, 10, 11022);
     			button.disabled = button_disabled_value = /*newFolderName*/ ctx[5].length < 1;
-    			add_location(button, file$2, 344, 10, 9523);
+    			add_location(button, file$2, 408, 10, 11101);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 340, 8, 9352);
+    			add_location(div1, file$2, 404, 8, 10930);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3061,16 +3362,16 @@ var app = (function () {
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(input, "input", /*input_input_handler*/ ctx[34]),
-    					listen_dev(button, "click", /*click_handler_2*/ ctx[35], false, false, false)
+    					listen_dev(input, "input", /*input_input_handler*/ ctx[41]),
+    					listen_dev(button, "click", /*click_handler_3*/ ctx[42], false, false, false)
     				];
 
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty[0] & /*folders*/ 8192) {
-    				each_value = /*folders*/ ctx[13];
+    			if (dirty[0] & /*folders*/ 65536) {
+    				each_value = /*folders*/ ctx[16];
     				validate_each_argument(each_value);
     				let i;
 
@@ -3115,14 +3416,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_3.name,
     		type: "slot",
-    		source: "(328:6) <ExpandableItem title=\\\"Upload options\\\">",
+    		source: "(392:6) <ExpandableItem title=\\\"Upload options\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (419:6) {#if columnBetweenBorderThickness > 0}
+    // (484:6) {#if columnBetweenBorderThickness > 0}
     function create_if_block$1(ctx) {
     	let div0;
     	let input0;
@@ -3171,47 +3472,47 @@ var app = (function () {
     			option5.textContent = "Ridge";
     			attr_dev(input0, "type", "color");
     			attr_dev(input0, "id", "bgColor");
-    			add_location(input0, file$2, 420, 10, 11661);
+    			add_location(input0, file$2, 485, 10, 13254);
     			set_style(input1, "width", "5rem");
     			attr_dev(input1, "type", "text");
     			attr_dev(input1, "maxlength", "7");
     			attr_dev(input1, "minlength", "7");
-    			add_location(input1, file$2, 424, 10, 11781);
+    			add_location(input1, file$2, 489, 10, 13374);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 419, 8, 11610);
-    			attr_dev(div1, "style", div1_style_value = "height: 1px; width :32px; border-bottom: " + /*columnBetweenBorderThickness*/ ctx[6] + "px " + /*columnBetweenBorderStyle*/ ctx[7] + " grey");
-    			add_location(div1, file$2, 433, 10, 12024);
+    			add_location(div0, file$2, 484, 8, 13203);
+    			attr_dev(div1, "style", div1_style_value = "height: 1px; width :32px; border-bottom: " + /*columnBetweenBorderThickness*/ ctx[9] + "px " + /*columnBetweenBorderStyle*/ ctx[10] + " grey");
+    			add_location(div1, file$2, 498, 10, 13617);
     			option0.__value = "solid";
     			option0.value = option0.__value;
-    			add_location(option0, file$2, 436, 12, 12247);
+    			add_location(option0, file$2, 501, 12, 13840);
     			option1.__value = "dotted";
     			option1.value = option1.__value;
-    			add_location(option1, file$2, 437, 12, 12296);
+    			add_location(option1, file$2, 502, 12, 13889);
     			option2.__value = "dashed";
     			option2.value = option2.__value;
-    			add_location(option2, file$2, 438, 12, 12347);
+    			add_location(option2, file$2, 503, 12, 13940);
     			option3.__value = "double";
     			option3.value = option3.__value;
-    			add_location(option3, file$2, 439, 12, 12398);
+    			add_location(option3, file$2, 504, 12, 13991);
     			option4.__value = "groove";
     			option4.value = option4.__value;
-    			add_location(option4, file$2, 440, 12, 12449);
+    			add_location(option4, file$2, 505, 12, 14042);
     			option5.__value = "ridge";
     			option5.value = option5.__value;
-    			add_location(option5, file$2, 441, 12, 12500);
+    			add_location(option5, file$2, 506, 12, 14093);
     			attr_dev(select, "id", "containerAlign");
-    			if (/*columnBetweenBorderStyle*/ ctx[7] === void 0) add_render_callback(() => /*select_change_handler*/ ctx[44].call(select));
-    			add_location(select, file$2, 435, 10, 12168);
+    			if (/*columnBetweenBorderStyle*/ ctx[10] === void 0) add_render_callback(() => /*select_change_handler*/ ctx[51].call(select));
+    			add_location(select, file$2, 500, 10, 13761);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 432, 8, 11973);
+    			add_location(div2, file$2, 497, 8, 13566);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
     			append_dev(div0, input0);
-    			set_input_value(input0, /*columnBetweenBorderColor*/ ctx[8]);
+    			set_input_value(input0, /*columnBetweenBorderColor*/ ctx[11]);
     			append_dev(div0, t0);
     			append_dev(div0, input1);
-    			set_input_value(input1, /*columnBetweenBorderColor*/ ctx[8]);
+    			set_input_value(input1, /*columnBetweenBorderColor*/ ctx[11]);
     			insert_dev(target, t1, anchor);
     			insert_dev(target, div2, anchor);
     			append_dev(div2, div1);
@@ -3223,34 +3524,34 @@ var app = (function () {
     			append_dev(select, option3);
     			append_dev(select, option4);
     			append_dev(select, option5);
-    			select_option(select, /*columnBetweenBorderStyle*/ ctx[7]);
+    			select_option(select, /*columnBetweenBorderStyle*/ ctx[10]);
     			current = true;
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(input0, "input", /*input0_input_handler*/ ctx[42]),
-    					listen_dev(input1, "input", /*input1_input_handler*/ ctx[43]),
-    					listen_dev(select, "change", /*select_change_handler*/ ctx[44])
+    					listen_dev(input0, "input", /*input0_input_handler*/ ctx[49]),
+    					listen_dev(input1, "input", /*input1_input_handler*/ ctx[50]),
+    					listen_dev(select, "change", /*select_change_handler*/ ctx[51])
     				];
 
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty[0] & /*columnBetweenBorderColor*/ 256) {
-    				set_input_value(input0, /*columnBetweenBorderColor*/ ctx[8]);
+    			if (dirty[0] & /*columnBetweenBorderColor*/ 2048) {
+    				set_input_value(input0, /*columnBetweenBorderColor*/ ctx[11]);
     			}
 
-    			if (dirty[0] & /*columnBetweenBorderColor*/ 256 && input1.value !== /*columnBetweenBorderColor*/ ctx[8]) {
-    				set_input_value(input1, /*columnBetweenBorderColor*/ ctx[8]);
+    			if (dirty[0] & /*columnBetweenBorderColor*/ 2048 && input1.value !== /*columnBetweenBorderColor*/ ctx[11]) {
+    				set_input_value(input1, /*columnBetweenBorderColor*/ ctx[11]);
     			}
 
-    			if (!current || dirty[0] & /*columnBetweenBorderThickness, columnBetweenBorderStyle*/ 192 && div1_style_value !== (div1_style_value = "height: 1px; width :32px; border-bottom: " + /*columnBetweenBorderThickness*/ ctx[6] + "px " + /*columnBetweenBorderStyle*/ ctx[7] + " grey")) {
+    			if (!current || dirty[0] & /*columnBetweenBorderThickness, columnBetweenBorderStyle*/ 1536 && div1_style_value !== (div1_style_value = "height: 1px; width :32px; border-bottom: " + /*columnBetweenBorderThickness*/ ctx[9] + "px " + /*columnBetweenBorderStyle*/ ctx[10] + " grey")) {
     				attr_dev(div1, "style", div1_style_value);
     			}
 
-    			if (dirty[0] & /*columnBetweenBorderStyle*/ 128) {
-    				select_option(select, /*columnBetweenBorderStyle*/ ctx[7]);
+    			if (dirty[0] & /*columnBetweenBorderStyle*/ 1024) {
+    				select_option(select, /*columnBetweenBorderStyle*/ ctx[10]);
     			}
     		},
     		i: function intro(local) {
@@ -3290,14 +3591,14 @@ var app = (function () {
     		block,
     		id: create_if_block$1.name,
     		type: "if",
-    		source: "(419:6) {#if columnBetweenBorderThickness > 0}",
+    		source: "(484:6) {#if columnBetweenBorderThickness > 0}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (352:4) <ExpandableItem title="Container">
+    // (416:4) <ExpandableItem title="Container">
     function create_default_slot_2(ctx) {
     	let div0;
     	let label0;
@@ -3308,62 +3609,64 @@ var app = (function () {
     	let t3;
     	let t4;
     	let t5;
-    	let small;
+    	let br;
     	let t6;
-    	let code1;
+    	let small;
     	let t7;
+    	let code1;
     	let t8;
     	let t9;
     	let t10;
+    	let t11;
     	let div1;
     	let label1;
-    	let t12;
-    	let input1;
     	let t13;
-    	let code2;
+    	let input1;
     	let t14;
+    	let code2;
     	let t15;
+    	let t16;
     	let div2;
     	let label2;
-    	let t17;
-    	let input2;
     	let t18;
-    	let code3;
+    	let input2;
     	let t19;
+    	let code3;
     	let t20;
     	let t21;
+    	let t22;
     	let div3;
     	let label3;
-    	let t23;
-    	let input3;
     	let t24;
-    	let code4;
+    	let input3;
     	let t25;
+    	let code4;
     	let t26;
     	let t27;
+    	let t28;
     	let div4;
     	let label4;
-    	let t29;
-    	let input4;
     	let t30;
-    	let code5;
+    	let input4;
     	let t31;
+    	let code5;
     	let t32;
     	let t33;
+    	let t34;
     	let div5;
     	let label5;
-    	let t35;
-    	let input5;
     	let t36;
-    	let code6;
+    	let input5;
     	let t37;
+    	let code6;
     	let t38;
     	let t39;
+    	let t40;
     	let if_block_anchor;
     	let current;
     	let mounted;
     	let dispose;
-    	let if_block = /*columnBetweenBorderThickness*/ ctx[6] > 0 && create_if_block$1(ctx);
+    	let if_block = /*columnBetweenBorderThickness*/ ctx[9] > 0 && create_if_block$1(ctx);
 
     	const block = {
     		c: function create() {
@@ -3374,269 +3677,274 @@ var app = (function () {
     			input0 = element("input");
     			t2 = space();
     			code0 = element("code");
-    			t3 = text(/*maxWidth*/ ctx[16]);
+    			t3 = text(/*maxWidth*/ ctx[19]);
     			t4 = text(" px");
     			t5 = space();
+    			br = element("br");
+    			t6 = space();
     			small = element("small");
-    			t6 = text("(");
+    			t7 = text("(");
     			code1 = element("code");
-    			t7 = text(/*colWidth*/ ctx[21]);
-    			t8 = text(" px");
-    			t9 = text(" per image)");
-    			t10 = space();
+    			t8 = text(/*colWidth*/ ctx[24]);
+    			t9 = text(" px");
+    			t10 = text(" per image)");
+    			t11 = space();
     			div1 = element("div");
     			label1 = element("label");
     			label1.textContent = "Images per row";
-    			t12 = space();
-    			input1 = element("input");
     			t13 = space();
+    			input1 = element("input");
+    			t14 = space();
     			code2 = element("code");
-    			t14 = text(/*imagesPerRow*/ ctx[3]);
-    			t15 = space();
+    			t15 = text(/*imagesPerRow*/ ctx[3]);
+    			t16 = space();
     			div2 = element("div");
     			label2 = element("label");
     			label2.textContent = "Space above row";
-    			t17 = space();
-    			input2 = element("input");
     			t18 = space();
+    			input2 = element("input");
+    			t19 = space();
     			code3 = element("code");
-    			t19 = text(/*columnBetweenBorderPaddingTop*/ ctx[9]);
-    			t20 = text(" px");
-    			t21 = space();
+    			t20 = text(/*columnBetweenBorderPaddingTop*/ ctx[12]);
+    			t21 = text(" px");
+    			t22 = space();
     			div3 = element("div");
     			label3 = element("label");
     			label3.textContent = "Space below row";
-    			t23 = space();
-    			input3 = element("input");
     			t24 = space();
+    			input3 = element("input");
+    			t25 = space();
     			code4 = element("code");
-    			t25 = text(/*columnBetweenBorderPaddingBottom*/ ctx[10]);
-    			t26 = text(" px");
-    			t27 = space();
+    			t26 = text(/*columnBetweenBorderPaddingBottom*/ ctx[13]);
+    			t27 = text(" px");
+    			t28 = space();
     			div4 = element("div");
     			label4 = element("label");
     			label4.textContent = "Horizontal gap";
-    			t29 = space();
-    			input4 = element("input");
     			t30 = space();
+    			input4 = element("input");
+    			t31 = space();
     			code5 = element("code");
-    			t31 = text(/*columnsHGap*/ ctx[4]);
-    			t32 = text(" px");
-    			t33 = space();
+    			t32 = text(/*columnsHGap*/ ctx[4]);
+    			t33 = text(" px");
+    			t34 = space();
     			div5 = element("div");
     			label5 = element("label");
     			label5.textContent = "Border";
-    			t35 = space();
-    			input5 = element("input");
     			t36 = space();
+    			input5 = element("input");
+    			t37 = space();
     			code6 = element("code");
-    			t37 = text(/*columnBetweenBorderThickness*/ ctx[6]);
-    			t38 = text(" px");
-    			t39 = space();
+    			t38 = text(/*columnBetweenBorderThickness*/ ctx[9]);
+    			t39 = text(" px");
+    			t40 = space();
     			if (if_block) if_block.c();
     			if_block_anchor = empty();
     			attr_dev(label0, "for", "maxWidth");
-    			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 353, 8, 9767);
+    			attr_dev(label0, "class", "svelte-1krhie2");
+    			add_location(label0, file$2, 417, 8, 11345);
     			attr_dev(input0, "id", "maxWidth");
     			attr_dev(input0, "type", "range");
     			attr_dev(input0, "min", "100");
     			attr_dev(input0, "max", "1200");
-    			add_location(input0, file$2, 354, 8, 9819);
-    			add_location(code0, file$2, 360, 8, 9957);
-    			add_location(code1, file$2, 361, 16, 10000);
-    			add_location(small, file$2, 361, 8, 9992);
+    			add_location(input0, file$2, 418, 8, 11397);
+    			add_location(code0, file$2, 424, 8, 11535);
+    			add_location(br, file$2, 425, 8, 11570);
+    			add_location(code1, file$2, 426, 16, 11593);
+    			add_location(small, file$2, 426, 8, 11585);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 352, 6, 9735);
+    			add_location(div0, file$2, 416, 6, 11313);
     			attr_dev(label1, "for", "colImgsPerRow");
-    			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 365, 8, 10098);
+    			attr_dev(label1, "class", "svelte-1krhie2");
+    			add_location(label1, file$2, 430, 8, 11691);
     			attr_dev(input1, "id", "colImgsPerRow");
     			attr_dev(input1, "type", "range");
     			attr_dev(input1, "min", "1");
     			attr_dev(input1, "max", "6");
-    			add_location(input1, file$2, 366, 8, 10156);
-    			add_location(code2, file$2, 372, 8, 10298);
+    			add_location(input1, file$2, 431, 8, 11749);
+    			add_location(code2, file$2, 437, 8, 11891);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 364, 6, 10066);
+    			add_location(div1, file$2, 429, 6, 11659);
     			attr_dev(label2, "for", "colBrdrSpcTop");
-    			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 376, 8, 10378);
+    			attr_dev(label2, "class", "svelte-1krhie2");
+    			add_location(label2, file$2, 441, 8, 11971);
     			attr_dev(input2, "id", "colBrdrSpcTop");
     			attr_dev(input2, "type", "range");
     			attr_dev(input2, "min", "0");
     			attr_dev(input2, "max", "40");
-    			add_location(input2, file$2, 377, 8, 10437);
-    			add_location(code3, file$2, 383, 8, 10597);
+    			add_location(input2, file$2, 442, 8, 12030);
+    			add_location(code3, file$2, 448, 8, 12190);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 375, 6, 10346);
+    			add_location(div2, file$2, 440, 6, 11939);
     			attr_dev(label3, "for", "colBrdrSpcBtm");
-    			attr_dev(label3, "class", "svelte-a9jl9f");
-    			add_location(label3, file$2, 386, 8, 10696);
+    			attr_dev(label3, "class", "svelte-1krhie2");
+    			add_location(label3, file$2, 451, 8, 12289);
     			attr_dev(input3, "id", "colBrdrSpcBtm");
     			attr_dev(input3, "type", "range");
     			attr_dev(input3, "min", "0");
     			attr_dev(input3, "max", "40");
-    			add_location(input3, file$2, 387, 8, 10755);
-    			add_location(code4, file$2, 393, 8, 10918);
+    			add_location(input3, file$2, 452, 8, 12348);
+    			add_location(code4, file$2, 458, 8, 12511);
     			attr_dev(div3, "class", "ctrl-flex");
-    			add_location(div3, file$2, 385, 6, 10664);
+    			add_location(div3, file$2, 450, 6, 12257);
     			attr_dev(label4, "for", "colHgap");
-    			attr_dev(label4, "class", "svelte-a9jl9f");
-    			add_location(label4, file$2, 397, 8, 11021);
+    			attr_dev(label4, "class", "svelte-1krhie2");
+    			add_location(label4, file$2, 462, 8, 12614);
     			attr_dev(input4, "id", "colHgap");
     			attr_dev(input4, "type", "range");
     			attr_dev(input4, "min", "0");
     			attr_dev(input4, "max", "32");
-    			add_location(input4, file$2, 398, 8, 11073);
-    			add_location(code5, file$2, 404, 8, 11209);
+    			add_location(input4, file$2, 463, 8, 12666);
+    			add_location(code5, file$2, 469, 8, 12802);
     			attr_dev(div4, "class", "ctrl-flex");
-    			add_location(div4, file$2, 396, 6, 10989);
+    			add_location(div4, file$2, 461, 6, 12582);
     			attr_dev(label5, "for", "colBrdrThcc");
-    			attr_dev(label5, "class", "svelte-a9jl9f");
-    			add_location(label5, file$2, 408, 8, 11291);
+    			attr_dev(label5, "class", "svelte-1krhie2");
+    			add_location(label5, file$2, 473, 8, 12884);
     			attr_dev(input5, "id", "colBrdrThcc");
     			attr_dev(input5, "type", "range");
     			attr_dev(input5, "min", "0");
     			attr_dev(input5, "max", "10");
-    			add_location(input5, file$2, 409, 8, 11339);
-    			add_location(code6, file$2, 415, 8, 11496);
+    			add_location(input5, file$2, 474, 8, 12932);
+    			add_location(code6, file$2, 480, 8, 13089);
     			attr_dev(div5, "class", "ctrl-flex");
-    			add_location(div5, file$2, 407, 6, 11259);
+    			add_location(div5, file$2, 472, 6, 12852);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
     			append_dev(div0, label0);
     			append_dev(div0, t1);
     			append_dev(div0, input0);
-    			set_input_value(input0, /*maxWidth*/ ctx[16]);
+    			set_input_value(input0, /*maxWidth*/ ctx[19]);
     			append_dev(div0, t2);
     			append_dev(div0, code0);
     			append_dev(code0, t3);
     			append_dev(code0, t4);
     			append_dev(div0, t5);
+    			append_dev(div0, br);
+    			append_dev(div0, t6);
     			append_dev(div0, small);
-    			append_dev(small, t6);
+    			append_dev(small, t7);
     			append_dev(small, code1);
-    			append_dev(code1, t7);
     			append_dev(code1, t8);
-    			append_dev(small, t9);
-    			insert_dev(target, t10, anchor);
+    			append_dev(code1, t9);
+    			append_dev(small, t10);
+    			insert_dev(target, t11, anchor);
     			insert_dev(target, div1, anchor);
     			append_dev(div1, label1);
-    			append_dev(div1, t12);
+    			append_dev(div1, t13);
     			append_dev(div1, input1);
     			set_input_value(input1, /*imagesPerRow*/ ctx[3]);
-    			append_dev(div1, t13);
+    			append_dev(div1, t14);
     			append_dev(div1, code2);
-    			append_dev(code2, t14);
-    			insert_dev(target, t15, anchor);
+    			append_dev(code2, t15);
+    			insert_dev(target, t16, anchor);
     			insert_dev(target, div2, anchor);
     			append_dev(div2, label2);
-    			append_dev(div2, t17);
-    			append_dev(div2, input2);
-    			set_input_value(input2, /*columnBetweenBorderPaddingTop*/ ctx[9]);
     			append_dev(div2, t18);
+    			append_dev(div2, input2);
+    			set_input_value(input2, /*columnBetweenBorderPaddingTop*/ ctx[12]);
+    			append_dev(div2, t19);
     			append_dev(div2, code3);
-    			append_dev(code3, t19);
     			append_dev(code3, t20);
-    			insert_dev(target, t21, anchor);
+    			append_dev(code3, t21);
+    			insert_dev(target, t22, anchor);
     			insert_dev(target, div3, anchor);
     			append_dev(div3, label3);
-    			append_dev(div3, t23);
-    			append_dev(div3, input3);
-    			set_input_value(input3, /*columnBetweenBorderPaddingBottom*/ ctx[10]);
     			append_dev(div3, t24);
+    			append_dev(div3, input3);
+    			set_input_value(input3, /*columnBetweenBorderPaddingBottom*/ ctx[13]);
+    			append_dev(div3, t25);
     			append_dev(div3, code4);
-    			append_dev(code4, t25);
     			append_dev(code4, t26);
-    			insert_dev(target, t27, anchor);
+    			append_dev(code4, t27);
+    			insert_dev(target, t28, anchor);
     			insert_dev(target, div4, anchor);
     			append_dev(div4, label4);
-    			append_dev(div4, t29);
+    			append_dev(div4, t30);
     			append_dev(div4, input4);
     			set_input_value(input4, /*columnsHGap*/ ctx[4]);
-    			append_dev(div4, t30);
+    			append_dev(div4, t31);
     			append_dev(div4, code5);
-    			append_dev(code5, t31);
     			append_dev(code5, t32);
-    			insert_dev(target, t33, anchor);
+    			append_dev(code5, t33);
+    			insert_dev(target, t34, anchor);
     			insert_dev(target, div5, anchor);
     			append_dev(div5, label5);
-    			append_dev(div5, t35);
-    			append_dev(div5, input5);
-    			set_input_value(input5, /*columnBetweenBorderThickness*/ ctx[6]);
     			append_dev(div5, t36);
+    			append_dev(div5, input5);
+    			set_input_value(input5, /*columnBetweenBorderThickness*/ ctx[9]);
+    			append_dev(div5, t37);
     			append_dev(div5, code6);
-    			append_dev(code6, t37);
     			append_dev(code6, t38);
-    			insert_dev(target, t39, anchor);
+    			append_dev(code6, t39);
+    			insert_dev(target, t40, anchor);
     			if (if_block) if_block.m(target, anchor);
     			insert_dev(target, if_block_anchor, anchor);
     			current = true;
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(input0, "change", /*input0_change_input_handler*/ ctx[36]),
-    					listen_dev(input0, "input", /*input0_change_input_handler*/ ctx[36]),
-    					listen_dev(input1, "change", /*input1_change_input_handler*/ ctx[37]),
-    					listen_dev(input1, "input", /*input1_change_input_handler*/ ctx[37]),
-    					listen_dev(input2, "change", /*input2_change_input_handler*/ ctx[38]),
-    					listen_dev(input2, "input", /*input2_change_input_handler*/ ctx[38]),
-    					listen_dev(input3, "change", /*input3_change_input_handler*/ ctx[39]),
-    					listen_dev(input3, "input", /*input3_change_input_handler*/ ctx[39]),
-    					listen_dev(input4, "change", /*input4_change_input_handler*/ ctx[40]),
-    					listen_dev(input4, "input", /*input4_change_input_handler*/ ctx[40]),
-    					listen_dev(input5, "change", /*input5_change_input_handler*/ ctx[41]),
-    					listen_dev(input5, "input", /*input5_change_input_handler*/ ctx[41])
+    					listen_dev(input0, "change", /*input0_change_input_handler*/ ctx[43]),
+    					listen_dev(input0, "input", /*input0_change_input_handler*/ ctx[43]),
+    					listen_dev(input1, "change", /*input1_change_input_handler*/ ctx[44]),
+    					listen_dev(input1, "input", /*input1_change_input_handler*/ ctx[44]),
+    					listen_dev(input2, "change", /*input2_change_input_handler*/ ctx[45]),
+    					listen_dev(input2, "input", /*input2_change_input_handler*/ ctx[45]),
+    					listen_dev(input3, "change", /*input3_change_input_handler*/ ctx[46]),
+    					listen_dev(input3, "input", /*input3_change_input_handler*/ ctx[46]),
+    					listen_dev(input4, "change", /*input4_change_input_handler*/ ctx[47]),
+    					listen_dev(input4, "input", /*input4_change_input_handler*/ ctx[47]),
+    					listen_dev(input5, "change", /*input5_change_input_handler*/ ctx[48]),
+    					listen_dev(input5, "input", /*input5_change_input_handler*/ ctx[48])
     				];
 
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty[0] & /*maxWidth*/ 65536) {
-    				set_input_value(input0, /*maxWidth*/ ctx[16]);
+    			if (dirty[0] & /*maxWidth*/ 524288) {
+    				set_input_value(input0, /*maxWidth*/ ctx[19]);
     			}
 
-    			if (!current || dirty[0] & /*maxWidth*/ 65536) set_data_dev(t3, /*maxWidth*/ ctx[16]);
-    			if (!current || dirty[0] & /*colWidth*/ 2097152) set_data_dev(t7, /*colWidth*/ ctx[21]);
+    			if (!current || dirty[0] & /*maxWidth*/ 524288) set_data_dev(t3, /*maxWidth*/ ctx[19]);
+    			if (!current || dirty[0] & /*colWidth*/ 16777216) set_data_dev(t8, /*colWidth*/ ctx[24]);
 
     			if (dirty[0] & /*imagesPerRow*/ 8) {
     				set_input_value(input1, /*imagesPerRow*/ ctx[3]);
     			}
 
-    			if (!current || dirty[0] & /*imagesPerRow*/ 8) set_data_dev(t14, /*imagesPerRow*/ ctx[3]);
+    			if (!current || dirty[0] & /*imagesPerRow*/ 8) set_data_dev(t15, /*imagesPerRow*/ ctx[3]);
 
-    			if (dirty[0] & /*columnBetweenBorderPaddingTop*/ 512) {
-    				set_input_value(input2, /*columnBetweenBorderPaddingTop*/ ctx[9]);
+    			if (dirty[0] & /*columnBetweenBorderPaddingTop*/ 4096) {
+    				set_input_value(input2, /*columnBetweenBorderPaddingTop*/ ctx[12]);
     			}
 
-    			if (!current || dirty[0] & /*columnBetweenBorderPaddingTop*/ 512) set_data_dev(t19, /*columnBetweenBorderPaddingTop*/ ctx[9]);
+    			if (!current || dirty[0] & /*columnBetweenBorderPaddingTop*/ 4096) set_data_dev(t20, /*columnBetweenBorderPaddingTop*/ ctx[12]);
 
-    			if (dirty[0] & /*columnBetweenBorderPaddingBottom*/ 1024) {
-    				set_input_value(input3, /*columnBetweenBorderPaddingBottom*/ ctx[10]);
+    			if (dirty[0] & /*columnBetweenBorderPaddingBottom*/ 8192) {
+    				set_input_value(input3, /*columnBetweenBorderPaddingBottom*/ ctx[13]);
     			}
 
-    			if (!current || dirty[0] & /*columnBetweenBorderPaddingBottom*/ 1024) set_data_dev(t25, /*columnBetweenBorderPaddingBottom*/ ctx[10]);
+    			if (!current || dirty[0] & /*columnBetweenBorderPaddingBottom*/ 8192) set_data_dev(t26, /*columnBetweenBorderPaddingBottom*/ ctx[13]);
 
     			if (dirty[0] & /*columnsHGap*/ 16) {
     				set_input_value(input4, /*columnsHGap*/ ctx[4]);
     			}
 
-    			if (!current || dirty[0] & /*columnsHGap*/ 16) set_data_dev(t31, /*columnsHGap*/ ctx[4]);
+    			if (!current || dirty[0] & /*columnsHGap*/ 16) set_data_dev(t32, /*columnsHGap*/ ctx[4]);
 
-    			if (dirty[0] & /*columnBetweenBorderThickness*/ 64) {
-    				set_input_value(input5, /*columnBetweenBorderThickness*/ ctx[6]);
+    			if (dirty[0] & /*columnBetweenBorderThickness*/ 512) {
+    				set_input_value(input5, /*columnBetweenBorderThickness*/ ctx[9]);
     			}
 
-    			if (!current || dirty[0] & /*columnBetweenBorderThickness*/ 64) set_data_dev(t37, /*columnBetweenBorderThickness*/ ctx[6]);
+    			if (!current || dirty[0] & /*columnBetweenBorderThickness*/ 512) set_data_dev(t38, /*columnBetweenBorderThickness*/ ctx[9]);
 
-    			if (/*columnBetweenBorderThickness*/ ctx[6] > 0) {
+    			if (/*columnBetweenBorderThickness*/ ctx[9] > 0) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
 
-    					if (dirty[0] & /*columnBetweenBorderThickness*/ 64) {
+    					if (dirty[0] & /*columnBetweenBorderThickness*/ 512) {
     						transition_in(if_block, 1);
     					}
     				} else {
@@ -3666,17 +3974,17 @@ var app = (function () {
     		},
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div0);
-    			if (detaching) detach_dev(t10);
+    			if (detaching) detach_dev(t11);
     			if (detaching) detach_dev(div1);
-    			if (detaching) detach_dev(t15);
+    			if (detaching) detach_dev(t16);
     			if (detaching) detach_dev(div2);
-    			if (detaching) detach_dev(t21);
+    			if (detaching) detach_dev(t22);
     			if (detaching) detach_dev(div3);
-    			if (detaching) detach_dev(t27);
+    			if (detaching) detach_dev(t28);
     			if (detaching) detach_dev(div4);
-    			if (detaching) detach_dev(t33);
+    			if (detaching) detach_dev(t34);
     			if (detaching) detach_dev(div5);
-    			if (detaching) detach_dev(t39);
+    			if (detaching) detach_dev(t40);
     			if (if_block) if_block.d(detaching);
     			if (detaching) detach_dev(if_block_anchor);
     			mounted = false;
@@ -3688,14 +3996,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_2.name,
     		type: "slot",
-    		source: "(352:4) <ExpandableItem title=\\\"Container\\\">",
+    		source: "(416:4) <ExpandableItem title=\\\"Container\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (448:4) <ExpandableItem title="Advanced">
+    // (513:4) <ExpandableItem title="Advanced">
     function create_default_slot_1$1(ctx) {
     	let div0;
     	let label0;
@@ -3770,44 +4078,44 @@ var app = (function () {
     			code3 = element("code");
     			code3.textContent = `${"{setGap}"}`;
     			t20 = text(" as a placeholder\n          for spacing set above.");
-    			add_location(code0, file$2, 449, 38, 12713);
+    			add_location(code0, file$2, 514, 38, 14306);
     			attr_dev(label0, "for", "astyle");
-    			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 449, 8, 12683);
+    			attr_dev(label0, "class", "svelte-1krhie2");
+    			add_location(label0, file$2, 514, 8, 14276);
     			set_style(input0, "font-family", "'Inconsolata', monospace");
     			set_style(input0, "width", "30rem");
     			attr_dev(input0, "type", "text");
     			attr_dev(input0, "id", "astyle");
-    			add_location(input0, file$2, 450, 8, 12749);
+    			add_location(input0, file$2, 515, 8, 14342);
     			attr_dev(div0, "class", "ctrl-flex");
-    			add_location(div0, file$2, 448, 6, 12651);
-    			add_location(code1, file$2, 458, 40, 12988);
+    			add_location(div0, file$2, 513, 6, 14244);
+    			add_location(code1, file$2, 523, 40, 14581);
     			attr_dev(label1, "for", "imgstyle");
-    			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 458, 8, 12956);
+    			attr_dev(label1, "class", "svelte-1krhie2");
+    			add_location(label1, file$2, 523, 8, 14549);
     			set_style(input1, "font-family", "'Inconsolata', monospace");
     			set_style(input1, "width", "30rem");
     			attr_dev(input1, "type", "text");
     			attr_dev(input1, "id", "imgstyle");
-    			add_location(input1, file$2, 459, 8, 13026);
+    			add_location(input1, file$2, 524, 8, 14619);
     			attr_dev(div1, "class", "ctrl-flex");
-    			add_location(div1, file$2, 457, 6, 12924);
+    			add_location(div1, file$2, 522, 6, 14517);
     			attr_dev(label2, "for", "__");
-    			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 467, 8, 13239);
+    			attr_dev(label2, "class", "svelte-1krhie2");
+    			add_location(label2, file$2, 532, 8, 14832);
     			set_style(code2, "color", "var(--accent)");
-    			add_location(code2, file$2, 469, 14, 13300);
-    			add_location(small0, file$2, 468, 8, 13278);
+    			add_location(code2, file$2, 534, 14, 14893);
+    			add_location(small0, file$2, 533, 8, 14871);
     			attr_dev(div2, "class", "ctrl-flex");
-    			add_location(div2, file$2, 466, 6, 13207);
+    			add_location(div2, file$2, 531, 6, 14800);
     			attr_dev(label3, "for", "___");
-    			attr_dev(label3, "class", "svelte-a9jl9f");
-    			add_location(label3, file$2, 474, 8, 13483);
+    			attr_dev(label3, "class", "svelte-1krhie2");
+    			add_location(label3, file$2, 539, 8, 15076);
     			set_style(code3, "color", "var(--accent)");
-    			add_location(code3, file$2, 476, 14, 13545);
-    			add_location(small1, file$2, 475, 8, 13523);
+    			add_location(code3, file$2, 541, 14, 15138);
+    			add_location(small1, file$2, 540, 8, 15116);
     			attr_dev(div3, "class", "ctrl-flex");
-    			add_location(div3, file$2, 473, 6, 13451);
+    			add_location(div3, file$2, 538, 6, 15044);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -3817,7 +4125,7 @@ var app = (function () {
     			append_dev(label0, t2);
     			append_dev(div0, t3);
     			append_dev(div0, input0);
-    			set_input_value(input0, /*aStyle*/ ctx[15]);
+    			set_input_value(input0, /*aStyle*/ ctx[18]);
     			insert_dev(target, t4, anchor);
     			insert_dev(target, div1, anchor);
     			append_dev(div1, label1);
@@ -3826,7 +4134,7 @@ var app = (function () {
     			append_dev(label1, t7);
     			append_dev(div1, t8);
     			append_dev(div1, input1);
-    			set_input_value(input1, /*imageStyle*/ ctx[14]);
+    			set_input_value(input1, /*imageStyle*/ ctx[17]);
     			insert_dev(target, t9, anchor);
     			insert_dev(target, div2, anchor);
     			append_dev(div2, label2);
@@ -3846,20 +4154,20 @@ var app = (function () {
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(input0, "input", /*input0_input_handler_1*/ ctx[45]),
-    					listen_dev(input1, "input", /*input1_input_handler_1*/ ctx[46])
+    					listen_dev(input0, "input", /*input0_input_handler_1*/ ctx[52]),
+    					listen_dev(input1, "input", /*input1_input_handler_1*/ ctx[53])
     				];
 
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty[0] & /*aStyle*/ 32768 && input0.value !== /*aStyle*/ ctx[15]) {
-    				set_input_value(input0, /*aStyle*/ ctx[15]);
+    			if (dirty[0] & /*aStyle*/ 262144 && input0.value !== /*aStyle*/ ctx[18]) {
+    				set_input_value(input0, /*aStyle*/ ctx[18]);
     			}
 
-    			if (dirty[0] & /*imageStyle*/ 16384 && input1.value !== /*imageStyle*/ ctx[14]) {
-    				set_input_value(input1, /*imageStyle*/ ctx[14]);
+    			if (dirty[0] & /*imageStyle*/ 131072 && input1.value !== /*imageStyle*/ ctx[17]) {
+    				set_input_value(input1, /*imageStyle*/ ctx[17]);
     			}
     		},
     		d: function destroy(detaching) {
@@ -3879,14 +4187,14 @@ var app = (function () {
     		block,
     		id: create_default_slot_1$1.name,
     		type: "slot",
-    		source: "(448:4) <ExpandableItem title=\\\"Advanced\\\">",
+    		source: "(513:4) <ExpandableItem title=\\\"Advanced\\\">",
     		ctx
     	});
 
     	return block;
     }
 
-    // (483:4) <ExpandableItem title="Misc">
+    // (548:4) <ExpandableItem title="Misc">
     function create_default_slot$1(ctx) {
     	let div;
     	let small;
@@ -3924,31 +4232,31 @@ var app = (function () {
     			span1 = element("span");
     			span1.textContent = "Add XL dummy data";
     			set_style(small, "margin-right", "0.5rem");
-    			add_location(small, file$2, 484, 8, 13803);
+    			add_location(small, file$2, 549, 8, 15396);
     			set_style(button0, "border-top-right-radius", "0");
     			set_style(button0, "border-bottom-right-radius", "0");
-    			add_location(button0, file$2, 485, 8, 13861);
+    			add_location(button0, file$2, 550, 8, 15454);
     			set_style(button1, "border-radius", "0");
     			set_style(button1, "border-left-width", "0");
     			set_style(button1, "border-right-width", "0");
-    			add_location(button1, file$2, 488, 8, 14016);
+    			add_location(button1, file$2, 553, 8, 15609);
     			set_style(button2, "border-top-left-radius", "0");
     			set_style(button2, "border-bottom-left-radius", "0");
-    			add_location(button2, file$2, 491, 8, 14171);
+    			add_location(button2, file$2, 556, 8, 15764);
     			set_style(div, "display", "flex");
     			set_style(div, "align-items", "baseline");
-    			add_location(div, file$2, 483, 6, 13743);
+    			add_location(div, file$2, 548, 6, 15336);
     			set_style(span0, "opacity", "0.5");
     			set_style(span0, "cursor", "pointer");
     			set_style(span0, "font-size", "0.8rem");
     			set_style(span0, "display", "inline-block");
-    			add_location(span0, file$2, 498, 6, 14387);
+    			add_location(span0, file$2, 563, 6, 15980);
     			set_style(span1, "opacity", "0.5");
     			set_style(span1, "cursor", "pointer");
     			set_style(span1, "font-size", "0.8rem");
     			set_style(span1, "display", "inline-block");
     			set_style(span1, "margin", "0 1rem");
-    			add_location(span1, file$2, 505, 6, 14812);
+    			add_location(span1, file$2, 574, 6, 16588);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -3966,11 +4274,11 @@ var app = (function () {
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(button0, "click", /*click_handler_3*/ ctx[47], false, false, false),
-    					listen_dev(button1, "click", /*click_handler_4*/ ctx[48], false, false, false),
-    					listen_dev(button2, "click", /*click_handler_5*/ ctx[49], false, false, false),
-    					listen_dev(span0, "click", /*click_handler_6*/ ctx[50], false, false, false),
-    					listen_dev(span1, "click", /*click_handler_7*/ ctx[51], false, false, false)
+    					listen_dev(button0, "click", /*click_handler_4*/ ctx[54], false, false, false),
+    					listen_dev(button1, "click", /*click_handler_5*/ ctx[55], false, false, false),
+    					listen_dev(button2, "click", /*click_handler_6*/ ctx[56], false, false, false),
+    					listen_dev(span0, "click", /*click_handler_7*/ ctx[57], false, false, false),
+    					listen_dev(span1, "click", /*click_handler_8*/ ctx[58], false, false, false)
     				];
 
     				mounted = true;
@@ -3992,7 +4300,7 @@ var app = (function () {
     		block,
     		id: create_default_slot$1.name,
     		type: "slot",
-    		source: "(483:4) <ExpandableItem title=\\\"Misc\\\">",
+    		source: "(548:4) <ExpandableItem title=\\\"Misc\\\">",
     		ctx
     	});
 
@@ -4004,76 +4312,95 @@ var app = (function () {
     	let main;
     	let h1;
     	let t1;
+    	let t2;
     	let div0;
-    	let label0;
+    	let each_blocks = [];
+    	let each_1_lookup = new Map();
     	let t3;
-    	let label1;
+    	let t4;
     	let t5;
-    	let textarea0;
-    	let t6;
-    	let textarea1;
-    	let t7;
-    	let span0;
-    	let t8;
-    	let t9;
-    	let t10;
-    	let t11;
-    	let t12;
-    	let t13;
     	let aside;
     	let div1;
     	let current_block_type_index;
     	let if_block3;
-    	let t14;
-    	let t15;
-    	let expandableitem0;
-    	let t16;
-    	let expandableitem1;
-    	let t17;
-    	let expandableitem2;
-    	let t18;
-    	let div2;
-    	let span1;
-    	let t20;
-    	let textarea2;
-    	let t21;
-    	let p;
-    	let t22;
-    	let t23;
-    	let dialog;
-    	let h3;
-    	let t25;
-    	let label2;
-    	let t27;
-    	let input;
-    	let t28;
-    	let br;
-    	let t29;
-    	let div4;
-    	let small;
-    	let t31;
+    	let t6;
     	let button0;
-    	let t33;
+    	let t8;
+    	let t9;
+    	let expandableitem0;
+    	let t10;
+    	let expandableitem1;
+    	let t11;
+    	let expandableitem2;
+    	let t12;
+    	let div2;
+    	let span;
+    	let t14;
+    	let textarea0;
+    	let t15;
+    	let p;
+    	let t16;
+    	let t17;
+    	let dialog0;
+    	let h30;
+    	let t19;
+    	let div4;
+    	let label0;
+    	let t21;
+    	let label1;
+    	let t23;
+    	let textarea1;
+    	let t24;
+    	let textarea2;
+    	let t25;
+    	let div5;
     	let button1;
-    	let t34;
-    	let button1_disabled_value;
+    	let t27;
+    	let dialog1;
+    	let h31;
+    	let t29;
+    	let label2;
+    	let t31;
+    	let input;
+    	let t32;
+    	let br;
+    	let t33;
+    	let div6;
+    	let small;
+    	let t35;
+    	let button2;
+    	let t37;
+    	let button3;
+    	let t38;
+    	let button3_disabled_value;
     	let current;
     	let mounted;
     	let dispose;
-    	let if_block0 = /*uploading*/ ctx[12] && create_if_block_6(ctx);
-    	let if_block1 = /*splitImages*/ ctx[22].length != /*splitUrls*/ ctx[23].length && create_if_block_5(ctx);
-    	let if_block2 = /*splitImages*/ ctx[22].length > 0 && /*columnImages*/ ctx[0].length > 0 && !/*uploading*/ ctx[12] && create_if_block_4(ctx);
+    	let if_block0 = /*uploading*/ ctx[15] && create_if_block_6(ctx);
+    	let each_value_1 = /*columnImgData*/ ctx[8];
+    	validate_each_argument(each_value_1);
+    	const get_key = ctx => /*n*/ ctx[89].id;
+    	validate_each_keys(ctx, each_value_1, get_each_context_1, get_key);
+
+    	for (let i = 0; i < each_value_1.length; i += 1) {
+    		let child_ctx = get_each_context_1(ctx, each_value_1, i);
+    		let key = get_key(child_ctx);
+    		each_1_lookup.set(key, each_blocks[i] = create_each_block_1(key, child_ctx));
+    	}
+
+    	let if_block1 = /*splitImages*/ ctx[25].length != /*splitUrls*/ ctx[26].length && create_if_block_5(ctx);
+    	let if_block2 = /*splitImages*/ ctx[25].length > 0 && /*columnImages*/ ctx[0].length > 0 && !/*uploading*/ ctx[15] && create_if_block_4(ctx);
     	const if_block_creators = [create_if_block_2, create_else_block];
     	const if_blocks = [];
 
     	function select_block_type(ctx, dirty) {
-    		if (/*connState*/ ctx[18] == null) return 0;
+    		if (/*connState*/ ctx[21] == null) return 0;
     		return 1;
     	}
 
     	current_block_type_index = select_block_type(ctx);
     	if_block3 = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
-    	let if_block4 = /*connState*/ ctx[18] != null && create_if_block_1(ctx);
+    	let if_block4 = /*connState*/ ctx[21] != null && create_if_block_1(ctx);
 
     	expandableitem0 = new ExpandableItem({
     			props: {
@@ -4109,128 +4436,148 @@ var app = (function () {
     			h1 = element("h1");
     			h1.textContent = "Multi-column images";
     			t1 = space();
-    			div0 = element("div");
-    			label0 = element("label");
-    			label0.textContent = "Images";
-    			t3 = space();
-    			label1 = element("label");
-    			label1.textContent = "URLs";
-    			t5 = space();
-    			textarea0 = element("textarea");
-    			t6 = space();
-    			textarea1 = element("textarea");
-    			t7 = space();
-    			span0 = element("span");
-    			t8 = text(/*colWidth*/ ctx[21]);
-    			t9 = text("px");
-    			t10 = space();
     			if (if_block0) if_block0.c();
-    			t11 = space();
+    			t2 = space();
+    			div0 = element("div");
+
+    			for (let i = 0; i < each_blocks.length; i += 1) {
+    				each_blocks[i].c();
+    			}
+
+    			t3 = space();
     			if (if_block1) if_block1.c();
-    			t12 = space();
+    			t4 = space();
     			if (if_block2) if_block2.c();
-    			t13 = space();
+    			t5 = space();
     			aside = element("aside");
     			div1 = element("div");
     			if_block3.c();
-    			t14 = space();
+    			t6 = space();
+    			button0 = element("button");
+    			button0.textContent = "Batch input";
+    			t8 = space();
     			if (if_block4) if_block4.c();
-    			t15 = space();
+    			t9 = space();
     			create_component(expandableitem0.$$.fragment);
-    			t16 = space();
+    			t10 = space();
     			create_component(expandableitem1.$$.fragment);
-    			t17 = space();
+    			t11 = space();
     			create_component(expandableitem2.$$.fragment);
-    			t18 = space();
+    			t12 = space();
     			div2 = element("div");
-    			span1 = element("span");
-    			span1.textContent = "Code";
-    			t20 = space();
-    			textarea2 = element("textarea");
-    			t21 = space();
+    			span = element("span");
+    			span.textContent = "Code";
+    			t14 = space();
+    			textarea0 = element("textarea");
+    			t15 = space();
     			p = element("p");
-    			t22 = text(/*columnCopiedToClipboardTxt*/ ctx[11]);
+    			t16 = text(/*columnCopiedToClipboardTxt*/ ctx[14]);
+    			t17 = space();
+    			dialog0 = element("dialog");
+    			h30 = element("h3");
+    			h30.textContent = "Batch input";
+    			t19 = space();
+    			div4 = element("div");
+    			label0 = element("label");
+    			label0.textContent = "Images";
+    			t21 = space();
+    			label1 = element("label");
+    			label1.textContent = "URLs";
     			t23 = space();
-    			dialog = element("dialog");
-    			h3 = element("h3");
-    			h3.textContent = "Connect";
+    			textarea1 = element("textarea");
+    			t24 = space();
+    			textarea2 = element("textarea");
     			t25 = space();
+    			div5 = element("div");
+    			button1 = element("button");
+    			button1.textContent = "Close";
+    			t27 = space();
+    			dialog1 = element("dialog");
+    			h31 = element("h3");
+    			h31.textContent = "Connect";
+    			t29 = space();
     			label2 = element("label");
     			label2.textContent = "API key";
-    			t27 = space();
+    			t31 = space();
     			input = element("input");
-    			t28 = space();
+    			t32 = space();
     			br = element("br");
-    			t29 = space();
-    			div4 = element("div");
+    			t33 = space();
+    			div6 = element("div");
     			small = element("small");
     			small.textContent = "Demo\n      API key";
-    			t31 = space();
-    			button0 = element("button");
-    			button0.textContent = "Cancel";
-    			t33 = space();
-    			button1 = element("button");
-    			t34 = text("Connect");
-    			add_location(h1, file$2, 246, 4, 6419);
-    			attr_dev(label0, "for", "inputImages");
-    			attr_dev(label0, "class", "svelte-a9jl9f");
-    			add_location(label0, file$2, 249, 6, 6478);
-    			attr_dev(label1, "for", "inputUrls");
-    			attr_dev(label1, "class", "svelte-a9jl9f");
-    			add_location(label1, file$2, 250, 6, 6524);
-    			textarea0.disabled = /*uploading*/ ctx[12];
-    			attr_dev(textarea0, "id", "inputImages");
-    			add_location(textarea0, file$2, 251, 6, 6566);
-    			textarea1.disabled = /*uploading*/ ctx[12];
-    			attr_dev(textarea1, "id", "inputUrls");
-    			add_location(textarea1, file$2, 255, 6, 6673);
-    			attr_dev(div0, "class", "flex");
-    			add_location(div0, file$2, 248, 4, 6453);
-    			add_location(span0, file$2, 258, 4, 6762);
-    			add_location(main, file$2, 245, 2, 6408);
+    			t35 = space();
+    			button2 = element("button");
+    			button2.textContent = "Cancel";
+    			t37 = space();
+    			button3 = element("button");
+    			t38 = text("Connect");
+    			add_location(h1, file$2, 302, 4, 7626);
+    			attr_dev(div0, "class", "list svelte-1krhie2");
+    			set_style(div0, "grid-template-columns", "repeat(" + /*imagesPerRow*/ ctx[3] + ", 8rem)");
+    			add_location(div0, file$2, 323, 4, 8343);
+    			add_location(main, file$2, 301, 2, 7615);
+    			add_location(button0, file$2, 387, 6, 10409);
     			attr_dev(div1, "class", "item");
-    			add_location(div1, file$2, 297, 4, 8035);
-    			attr_dev(span1, "class", "section-title");
-    			add_location(span1, file$2, 514, 6, 15509);
-    			attr_dev(textarea2, "class", "output");
-    			attr_dev(textarea2, "type", "text");
-    			textarea2.readOnly = true;
-    			add_location(textarea2, file$2, 516, 6, 15556);
-    			attr_dev(p, "class", "copiedToClipboardTxt svelte-a9jl9f");
-    			add_location(p, file$2, 524, 6, 15751);
+    			add_location(div1, file$2, 359, 4, 9536);
+    			attr_dev(span, "class", "section-title");
+    			add_location(span, file$2, 591, 6, 17750);
+    			attr_dev(textarea0, "class", "output");
+    			attr_dev(textarea0, "type", "text");
+    			textarea0.readOnly = true;
+    			add_location(textarea0, file$2, 593, 6, 17797);
+    			attr_dev(p, "class", "copiedToClipboardTxt svelte-1krhie2");
+    			add_location(p, file$2, 601, 6, 17992);
     			attr_dev(div2, "class", "item");
-    			add_location(div2, file$2, 513, 4, 15484);
-    			attr_dev(aside, "class", "svelte-a9jl9f");
-    			toggle_class(aside, "uploading", /*uploading*/ ctx[12]);
-    			add_location(aside, file$2, 296, 2, 8007);
+    			add_location(div2, file$2, 590, 4, 17725);
+    			attr_dev(aside, "class", "svelte-1krhie2");
+    			toggle_class(aside, "uploading", /*uploading*/ ctx[15]);
+    			add_location(aside, file$2, 358, 2, 9508);
     			attr_dev(div3, "class", "sidebar-grid");
-    			add_location(div3, file$2, 244, 0, 6379);
-    			attr_dev(h3, "class", "svelte-a9jl9f");
-    			add_location(h3, file$2, 530, 2, 15882);
+    			add_location(div3, file$2, 300, 0, 7586);
+    			attr_dev(h30, "class", "svelte-1krhie2");
+    			add_location(h30, file$2, 607, 2, 18122);
+    			attr_dev(label0, "for", "inputImages");
+    			attr_dev(label0, "class", "svelte-1krhie2");
+    			add_location(label0, file$2, 610, 4, 18169);
+    			attr_dev(label1, "for", "inputUrls");
+    			attr_dev(label1, "class", "svelte-1krhie2");
+    			add_location(label1, file$2, 611, 4, 18213);
+    			textarea1.disabled = /*uploading*/ ctx[15];
+    			attr_dev(textarea1, "id", "inputImages");
+    			add_location(textarea1, file$2, 612, 4, 18253);
+    			textarea2.disabled = /*uploading*/ ctx[15];
+    			attr_dev(textarea2, "id", "inputUrls");
+    			add_location(textarea2, file$2, 613, 4, 18334);
+    			attr_dev(div4, "class", "flex");
+    			add_location(div4, file$2, 609, 2, 18146);
+    			set_style(button1, "margin-left", "auto");
+    			add_location(button1, file$2, 617, 4, 18452);
+    			attr_dev(div5, "class", "dialog-actions");
+    			add_location(div5, file$2, 616, 2, 18419);
+    			add_location(dialog0, file$2, 606, 0, 18087);
+    			attr_dev(h31, "class", "svelte-1krhie2");
+    			add_location(h31, file$2, 624, 2, 18607);
     			attr_dev(label2, "for", "apiKeyTxt");
-    			attr_dev(label2, "class", "svelte-a9jl9f");
-    			add_location(label2, file$2, 532, 2, 15902);
+    			attr_dev(label2, "class", "svelte-1krhie2");
+    			add_location(label2, file$2, 626, 2, 18627);
     			set_style(input, "width", "20rem");
     			set_style(input, "font-family", "'Inconsolata', 'SF Mono', Menlo, Consolas, 'Courier New', Courier, monospace");
     			attr_dev(input, "type", "text");
     			attr_dev(input, "class", "apiKeyField");
     			attr_dev(input, "id", "apiKeyTxt");
-    			add_location(input, file$2, 533, 2, 15943);
-    			add_location(br, file$2, 540, 2, 16156);
+    			add_location(input, file$2, 627, 2, 18668);
+    			add_location(br, file$2, 634, 2, 18881);
     			set_style(small, "opacity", "0.6");
     			set_style(small, "cursor", "pointer");
     			set_style(small, "margin-right", "auto");
-    			add_location(small, file$2, 544, 4, 16281);
-    			add_location(button0, file$2, 549, 4, 16457);
-    			button1.disabled = button1_disabled_value = /*apiKey*/ ctx[17].length < 1;
-    			add_location(button1, file$2, 550, 4, 16523);
-    			set_style(div4, "display", "flex");
-    			set_style(div4, "gap", "4px");
-    			set_style(div4, "justify-content", "flex-end");
-    			set_style(div4, "align-items", "center");
-    			set_style(div4, "margin-top", "0.5rem");
-    			add_location(div4, file$2, 542, 2, 16166);
-    			add_location(dialog, file$2, 529, 0, 15846);
+    			add_location(small, file$2, 637, 4, 18924);
+    			add_location(button2, file$2, 642, 4, 19100);
+    			button3.disabled = button3_disabled_value = /*apiKey*/ ctx[20].length < 1;
+    			add_location(button3, file$2, 643, 4, 19166);
+    			attr_dev(div6, "class", "dialog-actions");
+    			add_location(div6, file$2, 636, 2, 18891);
+    			add_location(dialog1, file$2, 623, 0, 18571);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4240,113 +4587,109 @@ var app = (function () {
     			append_dev(div3, main);
     			append_dev(main, h1);
     			append_dev(main, t1);
-    			append_dev(main, div0);
-    			append_dev(div0, label0);
-    			append_dev(div0, t3);
-    			append_dev(div0, label1);
-    			append_dev(div0, t5);
-    			append_dev(div0, textarea0);
-    			set_input_value(textarea0, /*columnImages*/ ctx[0]);
-    			append_dev(div0, t6);
-    			append_dev(div0, textarea1);
-    			set_input_value(textarea1, /*columnUrls*/ ctx[1]);
-    			append_dev(main, t7);
-    			append_dev(main, span0);
-    			append_dev(span0, t8);
-    			append_dev(span0, t9);
-    			append_dev(main, t10);
     			if (if_block0) if_block0.m(main, null);
-    			append_dev(main, t11);
+    			append_dev(main, t2);
+    			append_dev(main, div0);
+
+    			for (let i = 0; i < each_blocks.length; i += 1) {
+    				each_blocks[i].m(div0, null);
+    			}
+
+    			append_dev(main, t3);
     			if (if_block1) if_block1.m(main, null);
-    			append_dev(main, t12);
+    			append_dev(main, t4);
     			if (if_block2) if_block2.m(main, null);
-    			append_dev(div3, t13);
+    			append_dev(div3, t5);
     			append_dev(div3, aside);
     			append_dev(aside, div1);
     			if_blocks[current_block_type_index].m(div1, null);
-    			append_dev(aside, t14);
+    			append_dev(div1, t6);
+    			append_dev(div1, button0);
+    			append_dev(aside, t8);
     			if (if_block4) if_block4.m(aside, null);
-    			append_dev(aside, t15);
+    			append_dev(aside, t9);
     			mount_component(expandableitem0, aside, null);
-    			append_dev(aside, t16);
+    			append_dev(aside, t10);
     			mount_component(expandableitem1, aside, null);
-    			append_dev(aside, t17);
+    			append_dev(aside, t11);
     			mount_component(expandableitem2, aside, null);
-    			append_dev(aside, t18);
+    			append_dev(aside, t12);
     			append_dev(aside, div2);
-    			append_dev(div2, span1);
-    			append_dev(div2, t20);
-    			append_dev(div2, textarea2);
-    			/*textarea2_binding*/ ctx[52](textarea2);
-    			set_input_value(textarea2, /*columnOutputCode*/ ctx[24]);
-    			append_dev(div2, t21);
+    			append_dev(div2, span);
+    			append_dev(div2, t14);
+    			append_dev(div2, textarea0);
+    			/*textarea0_binding*/ ctx[59](textarea0);
+    			set_input_value(textarea0, /*columnOutputCode*/ ctx[27]);
+    			append_dev(div2, t15);
     			append_dev(div2, p);
-    			append_dev(p, t22);
-    			insert_dev(target, t23, anchor);
-    			insert_dev(target, dialog, anchor);
-    			append_dev(dialog, h3);
-    			append_dev(dialog, t25);
-    			append_dev(dialog, label2);
-    			append_dev(dialog, t27);
-    			append_dev(dialog, input);
-    			set_input_value(input, /*apiKey*/ ctx[17]);
-    			append_dev(dialog, t28);
-    			append_dev(dialog, br);
-    			append_dev(dialog, t29);
-    			append_dev(dialog, div4);
-    			append_dev(div4, small);
-    			append_dev(div4, t31);
-    			append_dev(div4, button0);
-    			append_dev(div4, t33);
-    			append_dev(div4, button1);
-    			append_dev(button1, t34);
-    			/*dialog_binding*/ ctx[57](dialog);
+    			append_dev(p, t16);
+    			insert_dev(target, t17, anchor);
+    			insert_dev(target, dialog0, anchor);
+    			append_dev(dialog0, h30);
+    			append_dev(dialog0, t19);
+    			append_dev(dialog0, div4);
+    			append_dev(div4, label0);
+    			append_dev(div4, t21);
+    			append_dev(div4, label1);
+    			append_dev(div4, t23);
+    			append_dev(div4, textarea1);
+    			set_input_value(textarea1, /*columnImages*/ ctx[0]);
+    			append_dev(div4, t24);
+    			append_dev(div4, textarea2);
+    			set_input_value(textarea2, /*columnUrls*/ ctx[1]);
+    			append_dev(dialog0, t25);
+    			append_dev(dialog0, div5);
+    			append_dev(div5, button1);
+    			/*dialog0_binding*/ ctx[64](dialog0);
+    			insert_dev(target, t27, anchor);
+    			insert_dev(target, dialog1, anchor);
+    			append_dev(dialog1, h31);
+    			append_dev(dialog1, t29);
+    			append_dev(dialog1, label2);
+    			append_dev(dialog1, t31);
+    			append_dev(dialog1, input);
+    			set_input_value(input, /*apiKey*/ ctx[20]);
+    			append_dev(dialog1, t32);
+    			append_dev(dialog1, br);
+    			append_dev(dialog1, t33);
+    			append_dev(dialog1, div6);
+    			append_dev(div6, small);
+    			append_dev(div6, t35);
+    			append_dev(div6, button2);
+    			append_dev(div6, t37);
+    			append_dev(div6, button3);
+    			append_dev(button3, t38);
+    			/*dialog1_binding*/ ctx[68](dialog1);
     			current = true;
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(textarea0, "input", /*textarea0_input_handler*/ ctx[29]),
-    					listen_dev(textarea1, "input", /*textarea1_input_handler*/ ctx[30]),
-    					listen_dev(textarea2, "input", /*textarea2_input_handler*/ ctx[53]),
-    					listen_dev(textarea2, "click", /*columnSelectCode*/ ctx[25], false, false, false),
-    					listen_dev(input, "input", /*input_input_handler_1*/ ctx[54]),
-    					listen_dev(small, "click", /*click_handler_8*/ ctx[55], false, false, false),
-    					listen_dev(button0, "click", /*click_handler_9*/ ctx[56], false, false, false),
-    					listen_dev(button1, "click", /*setUp*/ ctx[28], false, false, false)
+    					listen_dev(button0, "click", /*click_handler_2*/ ctx[40], false, false, false),
+    					listen_dev(textarea0, "input", /*textarea0_input_handler*/ ctx[60]),
+    					listen_dev(textarea0, "click", /*columnSelectCode*/ ctx[30], false, false, false),
+    					listen_dev(textarea1, "input", /*textarea1_input_handler*/ ctx[61]),
+    					listen_dev(textarea2, "input", /*textarea2_input_handler*/ ctx[62]),
+    					listen_dev(button1, "click", /*click_handler_9*/ ctx[63], false, false, false),
+    					listen_dev(input, "input", /*input_input_handler_1*/ ctx[65]),
+    					listen_dev(small, "click", /*click_handler_10*/ ctx[66], false, false, false),
+    					listen_dev(button2, "click", /*click_handler_11*/ ctx[67], false, false, false),
+    					listen_dev(button3, "click", /*setUp*/ ctx[33], false, false, false)
     				];
 
     				mounted = true;
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if (!current || dirty[0] & /*uploading*/ 4096) {
-    				prop_dev(textarea0, "disabled", /*uploading*/ ctx[12]);
-    			}
-
-    			if (dirty[0] & /*columnImages*/ 1) {
-    				set_input_value(textarea0, /*columnImages*/ ctx[0]);
-    			}
-
-    			if (!current || dirty[0] & /*uploading*/ 4096) {
-    				prop_dev(textarea1, "disabled", /*uploading*/ ctx[12]);
-    			}
-
-    			if (dirty[0] & /*columnUrls*/ 2) {
-    				set_input_value(textarea1, /*columnUrls*/ ctx[1]);
-    			}
-
-    			if (!current || dirty[0] & /*colWidth*/ 2097152) set_data_dev(t8, /*colWidth*/ ctx[21]);
-
-    			if (/*uploading*/ ctx[12]) {
+    			if (/*uploading*/ ctx[15]) {
     				if (if_block0) {
-    					if (dirty[0] & /*uploading*/ 4096) {
+    					if (dirty[0] & /*uploading*/ 32768) {
     						transition_in(if_block0, 1);
     					}
     				} else {
     					if_block0 = create_if_block_6(ctx);
     					if_block0.c();
     					transition_in(if_block0, 1);
-    					if_block0.m(main, t11);
+    					if_block0.m(main, t2);
     				}
     			} else if (if_block0) {
     				group_outros();
@@ -4358,16 +4701,29 @@ var app = (function () {
     				check_outros();
     			}
 
-    			if (/*splitImages*/ ctx[22].length != /*splitUrls*/ ctx[23].length) {
+    			if (dirty[0] & /*hovering, columnImgData, dragstart, drop*/ 805306752) {
+    				const each_value_1 = /*columnImgData*/ ctx[8];
+    				validate_each_argument(each_value_1);
+    				for (let i = 0; i < each_blocks.length; i += 1) each_blocks[i].r();
+    				validate_each_keys(ctx, each_value_1, get_each_context_1, get_key);
+    				each_blocks = update_keyed_each(each_blocks, dirty, get_key, 1, ctx, each_value_1, each_1_lookup, div0, fix_and_destroy_block, create_each_block_1, null, get_each_context_1);
+    				for (let i = 0; i < each_blocks.length; i += 1) each_blocks[i].a();
+    			}
+
+    			if (!current || dirty[0] & /*imagesPerRow*/ 8) {
+    				set_style(div0, "grid-template-columns", "repeat(" + /*imagesPerRow*/ ctx[3] + ", 8rem)");
+    			}
+
+    			if (/*splitImages*/ ctx[25].length != /*splitUrls*/ ctx[26].length) {
     				if (if_block1) {
-    					if (dirty[0] & /*splitImages, splitUrls*/ 12582912) {
+    					if (dirty[0] & /*splitImages, splitUrls*/ 100663296) {
     						transition_in(if_block1, 1);
     					}
     				} else {
     					if_block1 = create_if_block_5(ctx);
     					if_block1.c();
     					transition_in(if_block1, 1);
-    					if_block1.m(main, t12);
+    					if_block1.m(main, t4);
     				}
     			} else if (if_block1) {
     				group_outros();
@@ -4379,11 +4735,11 @@ var app = (function () {
     				check_outros();
     			}
 
-    			if (/*splitImages*/ ctx[22].length > 0 && /*columnImages*/ ctx[0].length > 0 && !/*uploading*/ ctx[12]) {
+    			if (/*splitImages*/ ctx[25].length > 0 && /*columnImages*/ ctx[0].length > 0 && !/*uploading*/ ctx[15]) {
     				if (if_block2) {
     					if_block2.p(ctx, dirty);
 
-    					if (dirty[0] & /*splitImages, columnImages, uploading*/ 4198401) {
+    					if (dirty[0] & /*splitImages, columnImages, uploading*/ 33587201) {
     						transition_in(if_block2, 1);
     					}
     				} else {
@@ -4423,21 +4779,21 @@ var app = (function () {
     				}
 
     				transition_in(if_block3, 1);
-    				if_block3.m(div1, null);
+    				if_block3.m(div1, t6);
     			}
 
-    			if (/*connState*/ ctx[18] != null) {
+    			if (/*connState*/ ctx[21] != null) {
     				if (if_block4) {
     					if_block4.p(ctx, dirty);
 
-    					if (dirty[0] & /*connState*/ 262144) {
+    					if (dirty[0] & /*connState*/ 2097152) {
     						transition_in(if_block4, 1);
     					}
     				} else {
     					if_block4 = create_if_block_1(ctx);
     					if_block4.c();
     					transition_in(if_block4, 1);
-    					if_block4.m(aside, t15);
+    					if_block4.m(aside, t9);
     				}
     			} else if (if_block4) {
     				group_outros();
@@ -4451,42 +4807,58 @@ var app = (function () {
 
     			const expandableitem0_changes = {};
 
-    			if (dirty[0] & /*columnBetweenBorderStyle, columnBetweenBorderThickness, columnBetweenBorderColor, columnsHGap, columnBetweenBorderPaddingBottom, columnBetweenBorderPaddingTop, imagesPerRow, colWidth, maxWidth*/ 2164696 | dirty[2] & /*$$scope*/ 65536) {
+    			if (dirty[0] & /*columnBetweenBorderStyle, columnBetweenBorderThickness, columnBetweenBorderColor, columnsHGap, columnBetweenBorderPaddingBottom, columnBetweenBorderPaddingTop, imagesPerRow, colWidth, maxWidth*/ 17317400 | dirty[2] & /*$$scope*/ 1073741824) {
     				expandableitem0_changes.$$scope = { dirty, ctx };
     			}
 
     			expandableitem0.$set(expandableitem0_changes);
     			const expandableitem1_changes = {};
 
-    			if (dirty[0] & /*imageStyle, aStyle*/ 49152 | dirty[2] & /*$$scope*/ 65536) {
+    			if (dirty[0] & /*imageStyle, aStyle*/ 393216 | dirty[2] & /*$$scope*/ 1073741824) {
     				expandableitem1_changes.$$scope = { dirty, ctx };
     			}
 
     			expandableitem1.$set(expandableitem1_changes);
     			const expandableitem2_changes = {};
 
-    			if (dirty[0] & /*columnImages, columnUrls*/ 3 | dirty[2] & /*$$scope*/ 65536) {
+    			if (dirty[0] & /*columnImages, columnUrls, columnImgData*/ 259 | dirty[2] & /*$$scope*/ 1073741824) {
     				expandableitem2_changes.$$scope = { dirty, ctx };
     			}
 
     			expandableitem2.$set(expandableitem2_changes);
 
-    			if (dirty[0] & /*columnOutputCode*/ 16777216) {
-    				set_input_value(textarea2, /*columnOutputCode*/ ctx[24]);
+    			if (dirty[0] & /*columnOutputCode*/ 134217728) {
+    				set_input_value(textarea0, /*columnOutputCode*/ ctx[27]);
     			}
 
-    			if (!current || dirty[0] & /*columnCopiedToClipboardTxt*/ 2048) set_data_dev(t22, /*columnCopiedToClipboardTxt*/ ctx[11]);
+    			if (!current || dirty[0] & /*columnCopiedToClipboardTxt*/ 16384) set_data_dev(t16, /*columnCopiedToClipboardTxt*/ ctx[14]);
 
-    			if (dirty[0] & /*uploading*/ 4096) {
-    				toggle_class(aside, "uploading", /*uploading*/ ctx[12]);
+    			if (dirty[0] & /*uploading*/ 32768) {
+    				toggle_class(aside, "uploading", /*uploading*/ ctx[15]);
     			}
 
-    			if (dirty[0] & /*apiKey*/ 131072 && input.value !== /*apiKey*/ ctx[17]) {
-    				set_input_value(input, /*apiKey*/ ctx[17]);
+    			if (!current || dirty[0] & /*uploading*/ 32768) {
+    				prop_dev(textarea1, "disabled", /*uploading*/ ctx[15]);
     			}
 
-    			if (!current || dirty[0] & /*apiKey*/ 131072 && button1_disabled_value !== (button1_disabled_value = /*apiKey*/ ctx[17].length < 1)) {
-    				prop_dev(button1, "disabled", button1_disabled_value);
+    			if (dirty[0] & /*columnImages*/ 1) {
+    				set_input_value(textarea1, /*columnImages*/ ctx[0]);
+    			}
+
+    			if (!current || dirty[0] & /*uploading*/ 32768) {
+    				prop_dev(textarea2, "disabled", /*uploading*/ ctx[15]);
+    			}
+
+    			if (dirty[0] & /*columnUrls*/ 2) {
+    				set_input_value(textarea2, /*columnUrls*/ ctx[1]);
+    			}
+
+    			if (dirty[0] & /*apiKey*/ 1048576 && input.value !== /*apiKey*/ ctx[20]) {
+    				set_input_value(input, /*apiKey*/ ctx[20]);
+    			}
+
+    			if (!current || dirty[0] & /*apiKey*/ 1048576 && button3_disabled_value !== (button3_disabled_value = /*apiKey*/ ctx[20].length < 1)) {
+    				prop_dev(button3, "disabled", button3_disabled_value);
     			}
     		},
     		i: function intro(local) {
@@ -4515,6 +4887,11 @@ var app = (function () {
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div3);
     			if (if_block0) if_block0.d();
+
+    			for (let i = 0; i < each_blocks.length; i += 1) {
+    				each_blocks[i].d();
+    			}
+
     			if (if_block1) if_block1.d();
     			if (if_block2) if_block2.d();
     			if_blocks[current_block_type_index].d();
@@ -4522,10 +4899,13 @@ var app = (function () {
     			destroy_component(expandableitem0);
     			destroy_component(expandableitem1);
     			destroy_component(expandableitem2);
-    			/*textarea2_binding*/ ctx[52](null);
-    			if (detaching) detach_dev(t23);
-    			if (detaching) detach_dev(dialog);
-    			/*dialog_binding*/ ctx[57](null);
+    			/*textarea0_binding*/ ctx[59](null);
+    			if (detaching) detach_dev(t17);
+    			if (detaching) detach_dev(dialog0);
+    			/*dialog0_binding*/ ctx[64](null);
+    			if (detaching) detach_dev(t27);
+    			if (detaching) detach_dev(dialog1);
+    			/*dialog1_binding*/ ctx[68](null);
     			mounted = false;
     			run_all(dispose);
     		}
@@ -4552,6 +4932,34 @@ var app = (function () {
     	let columnsVGap = 0;
     	let folderId = 0;
     	let newFolderName = "";
+    	let batchDialog;
+    	let hovering = false;
+
+    	const drop = (event, target) => {
+    		event.dataTransfer.dropEffect = "move";
+    		const start = parseInt(event.dataTransfer.getData("text/plain"));
+    		const newTracklist = columnImgData;
+
+    		if (start < target) {
+    			newTracklist.splice(target + 1, 0, newTracklist[start]);
+    			newTracklist.splice(start, 1);
+    		} else {
+    			newTracklist.splice(target, 0, newTracklist[start]);
+    			newTracklist.splice(start + 1, 1);
+    		}
+
+    		$$invalidate(8, columnImgData = newTracklist);
+    		$$invalidate(7, hovering = null);
+    	};
+
+    	const dragstart = (event, i) => {
+    		event.dataTransfer.effectAllowed = "move";
+    		event.dataTransfer.dropEffect = "move";
+    		const start = i;
+    		event.dataTransfer.setData("text/plain", start);
+    	};
+
+    	let columnImgData = [];
     	let columnBetweenBorderThickness = 0;
     	let columnBetweenBorderStyle = "solid";
     	let columnBetweenBorderColor = "#aaaaaa";
@@ -4572,8 +4980,8 @@ var app = (function () {
     		columnOutputTextArea.select();
     		columnOutputTextArea.setSelectionRange(0, 99999);
     		document.execCommand("copy");
-    		$$invalidate(11, columnCopiedToClipboardTxt = "Copied to clipboard");
-    		setTimeout(() => $$invalidate(11, columnCopiedToClipboardTxt = "Click to copy"), 2000);
+    		$$invalidate(14, columnCopiedToClipboardTxt = "Copied to clipboard");
+    		setTimeout(() => $$invalidate(14, columnCopiedToClipboardTxt = "Click to copy"), 2000);
     	};
 
     	let previewDebug = false;
@@ -4586,7 +4994,7 @@ var app = (function () {
     			return;
     		}
 
-    		$$invalidate(12, uploading = true);
+    		$$invalidate(15, uploading = true);
 
     		for (let piece of chunk(filesToUpload, 10)) {
     			for (let file of piece) {
@@ -4599,8 +5007,8 @@ var app = (function () {
     					filesToUpload.shift();
 
     					if (filesToUpload.length == 0) {
-    						$$invalidate(20, uploadElement.value = "", uploadElement);
-    						$$invalidate(12, uploading = false);
+    						$$invalidate(23, uploadElement.value = "", uploadElement);
+    						$$invalidate(15, uploading = false);
     					}
     				};
 
@@ -4619,7 +5027,7 @@ var app = (function () {
     			tempFolders.push({ id: folder.id, name: folder.name });
     		}
 
-    		$$invalidate(13, folders = [...tempFolders]);
+    		$$invalidate(16, folders = [...tempFolders]);
     	};
 
     	const addFolder = async () => {
@@ -4654,7 +5062,7 @@ var app = (function () {
 
     	const testConnection = async e => {
     		const response = await client.ping.get();
-    		$$invalidate(18, connState = "✔ connected");
+    		$$invalidate(21, connState = "✔ connected");
     	};
 
     	const setUp = () => {
@@ -4662,7 +5070,7 @@ var app = (function () {
 
     		mailchimp.get({ path: "/ping" }).then(r => {
     			if (r.statusCode === 200) {
-    				$$invalidate(18, connState = "✔ connected");
+    				$$invalidate(21, connState = "✔ connected");
     				apiKeyDialog.close();
     				getFolderList();
     			}
@@ -4683,41 +5091,35 @@ var app = (function () {
 
     	let { $$slots = {}, $$scope } = $$props;
     	validate_slots("MultiColumn", $$slots, []);
-
-    	function textarea0_input_handler() {
-    		columnImages = this.value;
-    		$$invalidate(0, columnImages);
-    	}
-
-    	function textarea1_input_handler() {
-    		columnUrls = this.value;
-    		$$invalidate(1, columnUrls);
-    	}
-
+    	const dragstart_handler = (index, event) => dragstart(event, index);
+    	const drop_handler = (index, event) => drop(event, index);
+    	const dragenter_handler = index => $$invalidate(7, hovering = index);
     	const click_handler = () => apiKeyDialog.showModal();
 
     	const click_handler_1 = () => {
-    		$$invalidate(17, apiKey = "");
-    		$$invalidate(18, connState = null);
+    		$$invalidate(20, apiKey = "");
+    		$$invalidate(21, connState = null);
     	};
 
     	function input_binding($$value) {
     		binding_callbacks[$$value ? "unshift" : "push"](() => {
     			uploadElement = $$value;
-    			$$invalidate(20, uploadElement);
+    			$$invalidate(23, uploadElement);
     		});
     	}
+
+    	const click_handler_2 = () => batchDialog.showModal();
 
     	function input_input_handler() {
     		newFolderName = this.value;
     		$$invalidate(5, newFolderName);
     	}
 
-    	const click_handler_2 = () => addFolder();
+    	const click_handler_3 = () => addFolder();
 
     	function input0_change_input_handler() {
     		maxWidth = to_number(this.value);
-    		$$invalidate(16, maxWidth);
+    		$$invalidate(19, maxWidth);
     	}
 
     	function input1_change_input_handler() {
@@ -4727,12 +5129,12 @@ var app = (function () {
 
     	function input2_change_input_handler() {
     		columnBetweenBorderPaddingTop = to_number(this.value);
-    		$$invalidate(9, columnBetweenBorderPaddingTop);
+    		$$invalidate(12, columnBetweenBorderPaddingTop);
     	}
 
     	function input3_change_input_handler() {
     		columnBetweenBorderPaddingBottom = to_number(this.value);
-    		$$invalidate(10, columnBetweenBorderPaddingBottom);
+    		$$invalidate(13, columnBetweenBorderPaddingBottom);
     	}
 
     	function input4_change_input_handler() {
@@ -4742,73 +5144,138 @@ var app = (function () {
 
     	function input5_change_input_handler() {
     		columnBetweenBorderThickness = to_number(this.value);
-    		$$invalidate(6, columnBetweenBorderThickness);
+    		$$invalidate(9, columnBetweenBorderThickness);
     	}
 
     	function input0_input_handler() {
     		columnBetweenBorderColor = this.value;
-    		$$invalidate(8, columnBetweenBorderColor);
+    		$$invalidate(11, columnBetweenBorderColor);
     	}
 
     	function input1_input_handler() {
     		columnBetweenBorderColor = this.value;
-    		$$invalidate(8, columnBetweenBorderColor);
+    		$$invalidate(11, columnBetweenBorderColor);
     	}
 
     	function select_change_handler() {
     		columnBetweenBorderStyle = select_value(this);
-    		$$invalidate(7, columnBetweenBorderStyle);
+    		$$invalidate(10, columnBetweenBorderStyle);
     	}
 
     	function input0_input_handler_1() {
     		aStyle = this.value;
-    		$$invalidate(15, aStyle);
+    		$$invalidate(18, aStyle);
     	}
 
     	function input1_input_handler_1() {
     		imageStyle = this.value;
-    		$$invalidate(14, imageStyle);
+    		$$invalidate(17, imageStyle);
     	}
 
-    	const click_handler_3 = () => $$invalidate(0, columnImages = "");
-    	const click_handler_4 = () => $$invalidate(1, columnUrls = "");
+    	const click_handler_4 = () => $$invalidate(0, columnImages = "");
+    	const click_handler_5 = () => $$invalidate(1, columnUrls = "");
 
-    	const click_handler_5 = () => {
+    	const click_handler_6 = () => {
     		$$invalidate(0, columnImages = "");
     		$$invalidate(1, columnUrls = "");
     	};
 
-    	const click_handler_6 = () => {
+    	const click_handler_7 = () => {
     		$$invalidate(0, columnImages += "\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo");
     		$$invalidate(1, columnUrls += "\n#\n#");
+
+    		$$invalidate(8, columnImgData = [
+    			{
+    				img: "https://picsum.photos/id/10/300",
+    				url: "#",
+    				id: 0
+    			},
+    			{
+    				img: "https://picsum.photos/id/20/300",
+    				url: "#",
+    				id: 1
+    			}
+    		]);
     	};
 
-    	const click_handler_7 = () => {
+    	const click_handler_8 = () => {
     		$$invalidate(0, columnImages += "\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo");
     		$$invalidate(1, columnUrls += "\n#\n#\n#\n#");
+
+    		$$invalidate(8, columnImgData = [
+    			{
+    				img: "https://picsum.photos/id/1/300",
+    				url: "#",
+    				id: 0
+    			},
+    			{
+    				img: "https://picsum.photos/id/10/300",
+    				url: "#",
+    				id: 1
+    			},
+    			{
+    				img: "https://picsum.photos/id/20/300",
+    				url: "#",
+    				id: 2
+    			},
+    			{
+    				img: "https://picsum.photos/id/30/300",
+    				url: "#",
+    				id: 3
+    			},
+    			{
+    				img: "https://picsum.photos/id/40/300",
+    				url: "#",
+    				id: 4
+    			},
+    			{
+    				img: "https://picsum.photos/id/50/300",
+    				url: "#",
+    				id: 5
+    			}
+    		]);
     	};
 
-    	function textarea2_binding($$value) {
+    	function textarea0_binding($$value) {
     		binding_callbacks[$$value ? "unshift" : "push"](() => {
     			columnOutputTextArea = $$value;
-    			$$invalidate(19, columnOutputTextArea);
+    			$$invalidate(22, columnOutputTextArea);
     		});
     	}
 
-    	function textarea2_input_handler() {
+    	function textarea0_input_handler() {
     		columnOutputCode = this.value;
-    		((((((((((((((((((((($$invalidate(24, columnOutputCode), $$invalidate(63, columnItemsChunked)), $$invalidate(65, getColChildItems)), $$invalidate(66, columnBetweenBorder)), $$invalidate(62, columnItems)), $$invalidate(3, imagesPerRow)), $$invalidate(15, aStyle)), $$invalidate(61, parsedImageStyle)), $$invalidate(64, columnSeparatorTd)), $$invalidate(4, columnsHGap)), $$invalidate(9, columnBetweenBorderPaddingTop)), $$invalidate(6, columnBetweenBorderThickness)), $$invalidate(7, columnBetweenBorderStyle)), $$invalidate(8, columnBetweenBorderColor)), $$invalidate(10, columnBetweenBorderPaddingBottom)), $$invalidate(22, splitImages)), $$invalidate(23, splitUrls)), $$invalidate(14, imageStyle)), $$invalidate(21, colWidth)), $$invalidate(0, columnImages)), $$invalidate(1, columnUrls)), $$invalidate(16, maxWidth));
+    		((((((((((((((((($$invalidate(27, columnOutputCode), $$invalidate(74, columnItemsChunked)), $$invalidate(76, getColChildItems)), $$invalidate(77, columnBetweenBorder)), $$invalidate(8, columnImgData)), $$invalidate(3, imagesPerRow)), $$invalidate(18, aStyle)), $$invalidate(72, parsedImageStyle)), $$invalidate(75, columnSeparatorTd)), $$invalidate(4, columnsHGap)), $$invalidate(12, columnBetweenBorderPaddingTop)), $$invalidate(9, columnBetweenBorderThickness)), $$invalidate(10, columnBetweenBorderStyle)), $$invalidate(11, columnBetweenBorderColor)), $$invalidate(13, columnBetweenBorderPaddingBottom)), $$invalidate(17, imageStyle)), $$invalidate(24, colWidth)), $$invalidate(19, maxWidth));
+    	}
+
+    	function textarea1_input_handler() {
+    		columnImages = this.value;
+    		$$invalidate(0, columnImages);
+    	}
+
+    	function textarea2_input_handler() {
+    		columnUrls = this.value;
+    		$$invalidate(1, columnUrls);
+    	}
+
+    	const click_handler_9 = () => batchDialog.close();
+
+    	function dialog0_binding($$value) {
+    		binding_callbacks[$$value ? "unshift" : "push"](() => {
+    			batchDialog = $$value;
+    			$$invalidate(6, batchDialog);
+    		});
     	}
 
     	function input_input_handler_1() {
     		apiKey = this.value;
-    		$$invalidate(17, apiKey);
+    		$$invalidate(20, apiKey);
     	}
 
-    	const click_handler_8 = () => $$invalidate(17, apiKey = "be378ccde22c3aa784133ae1fe4ed5ec-us2");
-    	const click_handler_9 = () => apiKeyDialog.close();
+    	const click_handler_10 = () => $$invalidate(20, apiKey = "be378ccde22c3aa784133ae1fe4ed5ec-us2");
+    	const click_handler_11 = () => apiKeyDialog.close();
 
-    	function dialog_binding($$value) {
+    	function dialog1_binding($$value) {
     		binding_callbacks[$$value ? "unshift" : "push"](() => {
     			apiKeyDialog = $$value;
     			$$invalidate(2, apiKeyDialog);
@@ -4818,6 +5285,7 @@ var app = (function () {
     	$$self.$capture_state = () => ({
     		slide,
     		ExpandableItem,
+    		flip,
     		Mailchimp,
     		columnImages,
     		columnUrls,
@@ -4827,6 +5295,11 @@ var app = (function () {
     		columnsVGap,
     		folderId,
     		newFolderName,
+    		batchDialog,
+    		hovering,
+    		drop,
+    		dragstart,
+    		columnImgData,
     		columnBetweenBorderThickness,
     		columnBetweenBorderStyle,
     		columnBetweenBorderColor,
@@ -4876,35 +5349,38 @@ var app = (function () {
     		if ("columnsVGap" in $$props) columnsVGap = $$props.columnsVGap;
     		if ("folderId" in $$props) folderId = $$props.folderId;
     		if ("newFolderName" in $$props) $$invalidate(5, newFolderName = $$props.newFolderName);
-    		if ("columnBetweenBorderThickness" in $$props) $$invalidate(6, columnBetweenBorderThickness = $$props.columnBetweenBorderThickness);
-    		if ("columnBetweenBorderStyle" in $$props) $$invalidate(7, columnBetweenBorderStyle = $$props.columnBetweenBorderStyle);
-    		if ("columnBetweenBorderColor" in $$props) $$invalidate(8, columnBetweenBorderColor = $$props.columnBetweenBorderColor);
-    		if ("columnBetweenBorderPaddingTop" in $$props) $$invalidate(9, columnBetweenBorderPaddingTop = $$props.columnBetweenBorderPaddingTop);
-    		if ("columnBetweenBorderPaddingBottom" in $$props) $$invalidate(10, columnBetweenBorderPaddingBottom = $$props.columnBetweenBorderPaddingBottom);
-    		if ("columnCopiedToClipboardTxt" in $$props) $$invalidate(11, columnCopiedToClipboardTxt = $$props.columnCopiedToClipboardTxt);
-    		if ("uploading" in $$props) $$invalidate(12, uploading = $$props.uploading);
+    		if ("batchDialog" in $$props) $$invalidate(6, batchDialog = $$props.batchDialog);
+    		if ("hovering" in $$props) $$invalidate(7, hovering = $$props.hovering);
+    		if ("columnImgData" in $$props) $$invalidate(8, columnImgData = $$props.columnImgData);
+    		if ("columnBetweenBorderThickness" in $$props) $$invalidate(9, columnBetweenBorderThickness = $$props.columnBetweenBorderThickness);
+    		if ("columnBetweenBorderStyle" in $$props) $$invalidate(10, columnBetweenBorderStyle = $$props.columnBetweenBorderStyle);
+    		if ("columnBetweenBorderColor" in $$props) $$invalidate(11, columnBetweenBorderColor = $$props.columnBetweenBorderColor);
+    		if ("columnBetweenBorderPaddingTop" in $$props) $$invalidate(12, columnBetweenBorderPaddingTop = $$props.columnBetweenBorderPaddingTop);
+    		if ("columnBetweenBorderPaddingBottom" in $$props) $$invalidate(13, columnBetweenBorderPaddingBottom = $$props.columnBetweenBorderPaddingBottom);
+    		if ("columnCopiedToClipboardTxt" in $$props) $$invalidate(14, columnCopiedToClipboardTxt = $$props.columnCopiedToClipboardTxt);
+    		if ("uploading" in $$props) $$invalidate(15, uploading = $$props.uploading);
     		if ("filesToUpload" in $$props) filesToUpload = $$props.filesToUpload;
-    		if ("folders" in $$props) $$invalidate(13, folders = $$props.folders);
-    		if ("imageStyle" in $$props) $$invalidate(14, imageStyle = $$props.imageStyle);
-    		if ("aStyle" in $$props) $$invalidate(15, aStyle = $$props.aStyle);
-    		if ("maxWidth" in $$props) $$invalidate(16, maxWidth = $$props.maxWidth);
-    		if ("apiKey" in $$props) $$invalidate(17, apiKey = $$props.apiKey);
-    		if ("connState" in $$props) $$invalidate(18, connState = $$props.connState);
-    		if ("columnOutputTextArea" in $$props) $$invalidate(19, columnOutputTextArea = $$props.columnOutputTextArea);
+    		if ("folders" in $$props) $$invalidate(16, folders = $$props.folders);
+    		if ("imageStyle" in $$props) $$invalidate(17, imageStyle = $$props.imageStyle);
+    		if ("aStyle" in $$props) $$invalidate(18, aStyle = $$props.aStyle);
+    		if ("maxWidth" in $$props) $$invalidate(19, maxWidth = $$props.maxWidth);
+    		if ("apiKey" in $$props) $$invalidate(20, apiKey = $$props.apiKey);
+    		if ("connState" in $$props) $$invalidate(21, connState = $$props.connState);
+    		if ("columnOutputTextArea" in $$props) $$invalidate(22, columnOutputTextArea = $$props.columnOutputTextArea);
     		if ("previewDebug" in $$props) previewDebug = $$props.previewDebug;
-    		if ("uploadElement" in $$props) $$invalidate(20, uploadElement = $$props.uploadElement);
+    		if ("uploadElement" in $$props) $$invalidate(23, uploadElement = $$props.uploadElement);
     		if ("currentBase64" in $$props) currentBase64 = $$props.currentBase64;
     		if ("currentFileName" in $$props) currentFileName = $$props.currentFileName;
-    		if ("parsedImageStyle" in $$props) $$invalidate(61, parsedImageStyle = $$props.parsedImageStyle);
-    		if ("colWidth" in $$props) $$invalidate(21, colWidth = $$props.colWidth);
-    		if ("splitImages" in $$props) $$invalidate(22, splitImages = $$props.splitImages);
-    		if ("splitUrls" in $$props) $$invalidate(23, splitUrls = $$props.splitUrls);
-    		if ("columnItems" in $$props) $$invalidate(62, columnItems = $$props.columnItems);
-    		if ("columnItemsChunked" in $$props) $$invalidate(63, columnItemsChunked = $$props.columnItemsChunked);
-    		if ("columnSeparatorTd" in $$props) $$invalidate(64, columnSeparatorTd = $$props.columnSeparatorTd);
-    		if ("getColChildItems" in $$props) $$invalidate(65, getColChildItems = $$props.getColChildItems);
-    		if ("columnOutputCode" in $$props) $$invalidate(24, columnOutputCode = $$props.columnOutputCode);
-    		if ("columnBetweenBorder" in $$props) $$invalidate(66, columnBetweenBorder = $$props.columnBetweenBorder);
+    		if ("parsedImageStyle" in $$props) $$invalidate(72, parsedImageStyle = $$props.parsedImageStyle);
+    		if ("colWidth" in $$props) $$invalidate(24, colWidth = $$props.colWidth);
+    		if ("splitImages" in $$props) $$invalidate(25, splitImages = $$props.splitImages);
+    		if ("splitUrls" in $$props) $$invalidate(26, splitUrls = $$props.splitUrls);
+    		if ("columnItems" in $$props) columnItems = $$props.columnItems;
+    		if ("columnItemsChunked" in $$props) $$invalidate(74, columnItemsChunked = $$props.columnItemsChunked);
+    		if ("columnSeparatorTd" in $$props) $$invalidate(75, columnSeparatorTd = $$props.columnSeparatorTd);
+    		if ("getColChildItems" in $$props) $$invalidate(76, getColChildItems = $$props.getColChildItems);
+    		if ("columnOutputCode" in $$props) $$invalidate(27, columnOutputCode = $$props.columnOutputCode);
+    		if ("columnBetweenBorder" in $$props) $$invalidate(77, columnBetweenBorder = $$props.columnBetweenBorder);
     	};
 
     	let parsedImageStyle;
@@ -4923,54 +5399,54 @@ var app = (function () {
     	}
 
     	$$self.$$.update = () => {
-    		if ($$self.$$.dirty[0] & /*maxWidth, imagesPerRow, columnsHGap*/ 65560) {
-    			 $$invalidate(21, colWidth = Math.floor((maxWidth - (imagesPerRow - 1) * columnsHGap) / imagesPerRow));
+    		if ($$self.$$.dirty[0] & /*maxWidth, imagesPerRow, columnsHGap*/ 524312) {
+    			 $$invalidate(24, colWidth = Math.floor((maxWidth - (imagesPerRow - 1) * columnsHGap) / imagesPerRow));
     		}
 
-    		if ($$self.$$.dirty[0] & /*imageStyle, colWidth*/ 2113536) {
-    			 $$invalidate(61, parsedImageStyle = imageStyle.replace("{columnWidth}", colWidth));
+    		if ($$self.$$.dirty[0] & /*imageStyle, colWidth*/ 16908288) {
+    			 $$invalidate(72, parsedImageStyle = imageStyle.replace("{columnWidth}", colWidth));
     		}
 
     		if ($$self.$$.dirty[0] & /*columnImages*/ 1) {
-    			 $$invalidate(22, splitImages = columnImages.trimEnd().split("\n"));
+    			 $$invalidate(25, splitImages = columnImages.trimEnd().split("\n"));
     		}
 
     		if ($$self.$$.dirty[0] & /*columnUrls*/ 2) {
-    			 $$invalidate(23, splitUrls = columnUrls.trimEnd().split("\n"));
+    			 $$invalidate(26, splitUrls = columnUrls.trimEnd().split("\n"));
     		}
 
-    		if ($$self.$$.dirty[0] & /*splitImages, splitUrls*/ 12582912) {
-    			 $$invalidate(62, columnItems = splitImages.map(i => {
+    		if ($$self.$$.dirty[0] & /*splitImages, splitUrls*/ 100663296) {
+    			 columnItems = splitImages.map(i => {
     				let index = splitImages.indexOf(i);
     				return { image: i, url: splitUrls[index] };
-    			}));
+    			});
     		}
 
-    		if ($$self.$$.dirty[0] & /*imagesPerRow*/ 8 | $$self.$$.dirty[2] & /*columnItems*/ 1) {
-    			 $$invalidate(63, columnItemsChunked = new Array(Math.ceil(columnItems.length / imagesPerRow)).fill().map((_, i) => columnItems.slice(i * imagesPerRow, i * imagesPerRow + imagesPerRow)));
+    		if ($$self.$$.dirty[0] & /*columnImgData, imagesPerRow*/ 264) {
+    			 $$invalidate(74, columnItemsChunked = new Array(Math.ceil(columnImgData.length / imagesPerRow)).fill().map((_, i) => columnImgData.slice(i * imagesPerRow, i * imagesPerRow + imagesPerRow)));
     		}
 
     		if ($$self.$$.dirty[0] & /*columnsHGap*/ 16) {
-    			 $$invalidate(64, columnSeparatorTd = columnsHGap > 0
+    			 $$invalidate(75, columnSeparatorTd = columnsHGap > 0
     			? `<td style="padding: 0; margin: 0; border: 0; padding: 0 ${columnsHGap}px 0 0;"></td>`
     			: "");
     		}
 
-    		if ($$self.$$.dirty[0] & /*aStyle*/ 32768 | $$self.$$.dirty[1] & /*parsedImageStyle*/ 1073741824 | $$self.$$.dirty[2] & /*columnSeparatorTd*/ 4) {
-    			 $$invalidate(65, getColChildItems = source => source.map(item => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="padding: 0; margin: 0; display: block; ${parsedImageStyle}" />
+    		if ($$self.$$.dirty[0] & /*aStyle*/ 262144 | $$self.$$.dirty[2] & /*parsedImageStyle, columnSeparatorTd*/ 9216) {
+    			 $$invalidate(76, getColChildItems = source => source.map(item => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.img}" style="padding: 0; margin: 0; display: block; ${parsedImageStyle}" />
       </a></td>`).join(`${columnSeparatorTd}\n`));
     		}
 
-    		if ($$self.$$.dirty[0] & /*columnsHGap, imagesPerRow, columnBetweenBorderPaddingTop, columnBetweenBorderThickness, columnBetweenBorderStyle, columnBetweenBorderColor, columnBetweenBorderPaddingBottom*/ 2008) {
-    			 $$invalidate(66, columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${columnsHGap > 0
+    		if ($$self.$$.dirty[0] & /*columnsHGap, imagesPerRow, columnBetweenBorderPaddingTop, columnBetweenBorderThickness, columnBetweenBorderStyle, columnBetweenBorderColor, columnBetweenBorderPaddingBottom*/ 15896) {
+    			 $$invalidate(77, columnBetweenBorder = `\n<tr style="border: 0; padding: 0; margin: 0;"><td colspan="${columnsHGap > 0
 			? imagesPerRow + (imagesPerRow - 1)
 			: imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingTop}px; height: 0; ${columnBetweenBorderThickness > 0
 			? `border-bottom: ${columnBetweenBorderThickness}px ${columnBetweenBorderStyle} ${columnBetweenBorderColor};`
 			: "border: 0;"}"></td></tr><tr style="border: 0; padding: 0; margin: 0;"><td colspan="${imagesPerRow}" style="padding: 0; padding-top: ${columnBetweenBorderPaddingBottom}px; height: 0; border: 0;}"></td></tr>`);
     		}
 
-    		if ($$self.$$.dirty[2] & /*columnItemsChunked, getColChildItems, columnBetweenBorder*/ 26) {
-    			 $$invalidate(24, columnOutputCode = "<div class=\"mcnTextContent\" style=\"text-align: center; margin: 0; padding: 0; line-height: 0;\"><table style=\"border-collapse: collapse; margin: 0; padding: 0;\">" + columnItemsChunked.map(item => `<tr style="border: 0; padding: 0; margin: 0;">\n${getColChildItems(item)}\n</tr>`).join(`${columnBetweenBorder}\n`) + "</table></div>");
+    		if ($$self.$$.dirty[2] & /*columnItemsChunked, getColChildItems, columnBetweenBorder*/ 53248) {
+    			 $$invalidate(27, columnOutputCode = "<div class=\"mcnTextContent\" style=\"text-align: center; margin: 0; padding: 0; line-height: 0;\"><table style=\"border-collapse: collapse; margin: 0; padding: 0;\">" + columnItemsChunked.map(item => `<tr style="border: 0; padding: 0; margin: 0;">\n${getColChildItems(item)}\n</tr>`).join(`${columnBetweenBorder}\n`) + "</table></div>");
     		}
     	};
 
@@ -4981,6 +5457,9 @@ var app = (function () {
     		imagesPerRow,
     		columnsHGap,
     		newFolderName,
+    		batchDialog,
+    		hovering,
+    		columnImgData,
     		columnBetweenBorderThickness,
     		columnBetweenBorderStyle,
     		columnBetweenBorderColor,
@@ -5000,17 +5479,21 @@ var app = (function () {
     		splitImages,
     		splitUrls,
     		columnOutputCode,
+    		drop,
+    		dragstart,
     		columnSelectCode,
     		toBase64,
     		addFolder,
     		setUp,
-    		textarea0_input_handler,
-    		textarea1_input_handler,
+    		dragstart_handler,
+    		drop_handler,
+    		dragenter_handler,
     		click_handler,
     		click_handler_1,
     		input_binding,
-    		input_input_handler,
     		click_handler_2,
+    		input_input_handler,
+    		click_handler_3,
     		input0_change_input_handler,
     		input1_change_input_handler,
     		input2_change_input_handler,
@@ -5022,17 +5505,21 @@ var app = (function () {
     		select_change_handler,
     		input0_input_handler_1,
     		input1_input_handler_1,
-    		click_handler_3,
     		click_handler_4,
     		click_handler_5,
     		click_handler_6,
     		click_handler_7,
-    		textarea2_binding,
-    		textarea2_input_handler,
-    		input_input_handler_1,
     		click_handler_8,
+    		textarea0_binding,
+    		textarea0_input_handler,
+    		textarea1_input_handler,
+    		textarea2_input_handler,
     		click_handler_9,
-    		dialog_binding
+    		dialog0_binding,
+    		input_input_handler_1,
+    		click_handler_10,
+    		click_handler_11,
+    		dialog1_binding
     	];
     }
 

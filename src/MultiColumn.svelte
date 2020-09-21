@@ -1,6 +1,7 @@
 <script>
   import { slide } from "svelte/transition";
   import ExpandableItem from "./ExpandableItem.svelte";
+  import {flip} from 'svelte/animate';
 
   var Mailchimp = require("mailchimp-api-v3");
 
@@ -12,6 +13,33 @@
   let columnsVGap = 0;
   let folderId = 0;
   let newFolderName = "";
+  let batchDialog;
+  let hovering = false;
+
+  const drop = (event, target) => {
+    event.dataTransfer.dropEffect = 'move'; 
+    const start = parseInt(event.dataTransfer.getData("text/plain"));
+    const newTracklist = columnImgData
+
+    if (start < target) {
+      newTracklist.splice(target + 1, 0, newTracklist[start]);
+      newTracklist.splice(start, 1);
+    } else {
+      newTracklist.splice(target, 0, newTracklist[start]);
+      newTracklist.splice(start + 1, 1);
+    }
+    columnImgData = newTracklist
+    hovering = null
+  }
+
+  const dragstart = (event, i) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.dropEffect = 'move';
+    const start = i;
+    event.dataTransfer.setData('text/plain', start);
+  }
+
+  let columnImgData = []; 
 
   let columnBetweenBorderThickness = 0;
   let columnBetweenBorderStyle = "solid";
@@ -49,11 +77,11 @@
   });
 
   $: columnItemsChunked = new Array(
-    Math.ceil(columnItems.length / imagesPerRow)
+    Math.ceil(columnImgData.length / imagesPerRow)
   )
     .fill()
     .map((_, i) =>
-      columnItems.slice(i * imagesPerRow, i * imagesPerRow + imagesPerRow)
+    columnImgData.slice(i * imagesPerRow, i * imagesPerRow + imagesPerRow)
     );
 
   $: columnSeparatorTd =
@@ -66,7 +94,7 @@
       .map(
         (
           item
-        ) => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.image}" style="padding: 0; margin: 0; display: block; ${parsedImageStyle}" />
+        ) => `<td style="border: 0; padding: 0; margin: 0;">\n\t<a href="${item.url}" style="${aStyle}">\n\t\t<img src="${item.img}" style="padding: 0; margin: 0; display: block; ${parsedImageStyle}" />
       </a></td>`
       )
       .join(`${columnSeparatorTd}\n`);
@@ -240,23 +268,39 @@
     opacity: 0.5;
     pointer-events: none;
   }
+
+  .list img {
+    height: 6rem;
+    width: 6rem;
+    object-fit: cover;
+    border-radius: 6px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .list {
+    display: grid;
+    
+    gap: 0.5rem;
+  }
+
+  .list-item {
+    padding: 1rem;
+    border-radius: 6px;
+    transition: 0.3s background-color;
+    border: 1px solid #eee;
+
+  }
+
+  .list-item.is-active {
+    background-color: #3273dc;
+    color: #fff;
+  }
 </style>
 
 <div class="sidebar-grid">
   <main>
     <h1>Multi-column images</h1>
-
-    <div class="flex">
-      <label for="inputImages">Images</label>
-      <label for="inputUrls">URLs</label>
-      <textarea
-        disabled={uploading}
-        id="inputImages"
-        bind:value={columnImages} />
-      <textarea disabled={uploading} id="inputUrls" bind:value={columnUrls} />
-    </div>
-
-    <span>{colWidth}px</span>
 
     {#if uploading}
       <div transition:slide class="sk-fading-circle">
@@ -276,6 +320,24 @@
       <span>Uploading</span>
       <br />
     {/if}
+
+    <div class="list" style="grid-template-columns: repeat({imagesPerRow}, 8rem);">
+      {#each columnImgData as n, index  (n.id)}
+        <div
+           class="list-item" 
+           animate:flip={{duration: 250}}
+           draggable={true} 
+           on:dragstart={event => dragstart(event, index)}
+           on:drop|preventDefault={event => drop(event, index)}
+           ondragover="return false"
+           on:dragenter={() => hovering = index}
+           class:is-active={hovering === index}>
+           <a href="{n.url}">
+            <img src="{n.img}" alt="Test">
+           </a>
+        </div>
+      {/each}
+    </div>
 
     {#if splitImages.length != splitUrls.length}
       <small
@@ -322,6 +384,8 @@
           </div>
         {/if}
       {/if}
+
+      <button on:click={() => batchDialog.showModal()}>Batch input</button>
     </div>
 
     {#if connState != null}
@@ -359,6 +423,7 @@
           max="1200"
           bind:value={maxWidth} />
         <code>{maxWidth} px</code>
+        <br />
         <small>(<code>{colWidth} px</code> per image)</small>
       </div>
 
@@ -501,6 +566,10 @@
         on:click={() => {
           columnImages += '\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo';
           columnUrls += '\n#\n#';
+          columnImgData = [
+            {img: 'https://picsum.photos/id/10/300', url: '#', id: 0},
+            {img: 'https://picsum.photos/id/20/300', url: '#', id: 1},
+          ];
         }}>Add dummy data</span>
 
       <span
@@ -508,6 +577,14 @@
         on:click={() => {
           columnImages += '\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo';
           columnUrls += '\n#\n#\n#\n#';
+          columnImgData = [
+            {img: 'https://picsum.photos/id/1/300', url: '#', id: 0},
+            {img: 'https://picsum.photos/id/10/300', url: '#', id: 1},
+            {img: 'https://picsum.photos/id/20/300', url: '#', id: 2},
+            {img: 'https://picsum.photos/id/30/300', url: '#', id: 3},
+            {img: 'https://picsum.photos/id/40/300', url: '#', id: 4},
+            {img: 'https://picsum.photos/id/50/300', url: '#', id: 5},
+          ]
         }}>Add XL dummy data</span>
     </ExpandableItem>
 
@@ -527,6 +604,23 @@
   </aside>
 </div>
 
+<dialog bind:this={batchDialog}>
+  <h3>Batch input</h3>
+
+  <div class="flex">
+    <label for="inputImages">Images</label>
+    <label for="inputUrls">URLs</label>
+    <textarea disabled={uploading} id="inputImages" bind:value={columnImages} />
+    <textarea disabled={uploading} id="inputUrls" bind:value={columnUrls} />
+  </div>
+
+  <div class="dialog-actions">
+    <button
+      style="margin-left: auto;"
+      on:click={() => batchDialog.close()}>Close</button>
+  </div>
+</dialog>
+
 <dialog bind:this={apiKeyDialog}>
   <h3>Connect</h3>
 
@@ -540,8 +634,7 @@
 
   <br />
 
-  <div
-    style="display: flex; gap: 4px; justify-content: flex-end; align-items: center; margin-top: 0.5rem;">
+  <div class="dialog-actions">
     <small
       style="opacity: 0.6; cursor: pointer; margin-right: auto"
       on:click={() => (apiKey = 'be378ccde22c3aa784133ae1fe4ed5ec-us2')}>Demo

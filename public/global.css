@@ -19,7 +19,8 @@ html {
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     position: relative;
     width: 100%;
     height: 100%;
@@ -51,7 +52,11 @@ label {
     font-size: 0.8rem;
 }
 
-input, button, select, textarea, input::-webkit-file-upload-button {
+input,
+button,
+select,
+textarea,
+input::-webkit-file-upload-button {
     font-family: inherit;
     font-size: 0.8rem;
     -webkit-padding: 0.4rem 0;
@@ -110,7 +115,8 @@ button {
     transition: 0.3s background-color, 0.3s color;
 }
 
-button:not(:disabled):hover, input:not(:disabled):hover::-webkit-file-upload-button {
+button:not(:disabled):hover,
+input:not(:disabled):hover::-webkit-file-upload-button {
     background-color: var(--accent);
     color: #fff;
 }
@@ -278,7 +284,9 @@ button:focus {
 }
 
 @-webkit-keyframes sk-circleFadeDelay {
-    0%, 39%, 100% {
+    0%,
+    39%,
+    100% {
         opacity: 0;
     }
     40% {
@@ -287,7 +295,9 @@ button:focus {
 }
 
 @keyframes sk-circleFadeDelay {
-    0%, 39%, 100% {
+    0%,
+    39%,
+    100% {
         opacity: 0;
     }
     40% {
@@ -295,17 +305,31 @@ button:focus {
     }
 }
 
-h1, h2, h3, h4, h5, h6, p {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
     margin: 0;
     padding: 0;
     user-select: none;
 }
 
-label, button, code, small {
+label,
+button,
+code,
+small {
     user-select: none;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     margin-bottom: 1rem;
     font-weight: 400;
 }
@@ -334,7 +358,8 @@ dialog::backdrop {
     backdrop-filter: blur(30px) saturate(1.25);
 }
 
-code, textarea {
+code,
+textarea {
     font-family: 'Inconsolata', 'SF Mono', Menlo, Consolas, 'Courier New', Courier, monospace;
     font-size: 0.8rem;
 }
@@ -447,7 +472,10 @@ input[type="color"]::-webkit-color-swatch {
     margin: 0;
 }
 
-.ctrl-flex input[type="number"], .ctrl-flex input[type="text"], .ctrl-flex select, .ctrl-flex .toggleBtn {
+.ctrl-flex input[type="number"],
+.ctrl-flex input[type="text"],
+.ctrl-flex select,
+.ctrl-flex .toggleBtn {
     padding: 0.5rem;
 }
 
@@ -475,7 +503,8 @@ details details {
     height: 100vh;
 }
 
-.sidebar-grid main, .sidebar-grid aside {
+.sidebar-grid main,
+.sidebar-grid aside {
     overflow-y: auto;
     padding-top: 3rem;
 }
@@ -499,6 +528,9 @@ details details {
 .sidebar-grid aside .item {
     padding: 0.5rem 1rem;
     border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 ::-webkit-scrollbar-track {
@@ -519,4 +551,12 @@ details details {
 
 ::-webkit-scrollbar-thumb:active {
     background: linear-gradient(left, #22ADD4, #1E98BA);
+}
+
+dialog .dialog-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 0.5rem;
 }
