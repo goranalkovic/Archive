@@ -133,7 +133,7 @@
   };
 
   const copyText = (txt) => {
-    let tempInput = document.createElement('input');
+    let tempInput = document.createElement("input");
     tempInput.value = txt;
     document.body.appendChild(tempInput);
     tempInput.select();
@@ -388,42 +388,35 @@
   .list-item {
     padding: 0.25rem;
     border-radius: 6px;
-    transition: 0.3s background-color, 0.3s border;
+    transition: 0.3s background-color, 0.3s border, 0.3s transform;
     border: 1px solid #eee;
     margin: 0;
     display: block;
+    position: relative;
   }
 
   .list-item:not(.is-active):hover {
     border: 1px solid var(--accent) !important;
   }
 
+  
+
   .list-item.is-active {
     background-color: var(--accent);
     color: #fff;
+    transform: scale(0.9);
   }
 
   .list-item.is-active img {
     opacity: 0.6;
   }
 
-  .list-upload button {
-    color: #aaa;
-    border: 1px dashed #bbb;
-  }
-
-  .list-upload button:hover {
-    background-color: #fcfcfc;
-  }
-
-  .list-upload input,
-  .list-upload button {
+  .list-upload input {
     height: 100%;
     width: 100%;
   }
 
-  .list-upload input:disabled,
-  .list-upload button:disabled {
+  .list-upload input:disabled {
     opacity: 0.5 !important;
     pointer-events: none !important;
   }
@@ -434,6 +427,17 @@
     object-fit: cover;
     border-radius: 6px;
     border: 1px solid #e2e8f0;
+  }
+
+  .copyable {
+    color: var(--accent);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: 0.3s background-color, 0.3s color;
+  }
+
+  .copyable:hover {
+    background: var(--accent-highlight);
   }
 </style>
 
@@ -473,7 +477,8 @@
         <a
           on:click|preventDefault={() => editColImg(index)}
           href={n.url}
-          class="list-item"
+          data-tooltip="URL {n.url}"
+          class="list-item with-tooltip"
           animate:flip={{ duration: 250 }}
           draggable={true}
           on:dragstart={(event) => dragstart(event, index)}
@@ -548,7 +553,7 @@
       </ExpandableItem>
     {/if}
 
-    <ExpandableItem title="Container">
+    <ExpandableItem title="Options">
       <div class="ctrl-flex">
         <label for="maxWidth"><Icon name="maxWidth" />
           Maximum width</label>
@@ -660,36 +665,39 @@
           </div>
         {/if}
       </div>
-    </ExpandableItem>
 
-    <ExpandableItem title="Advanced">
-      <div class="ctrl-flex">
-        <label for="astyle"><Icon name="aStyle" />
-          Style for <code>a</code> tags</label>
-        <input
-          style="font-family: 'Inconsolata', monospace; width: 30rem;"
-          type="text"
-          bind:value={aStyle}
-          id="astyle" />
-      </div>
+      <ExpandableItem title="Advanced">
+        <div class="ctrl-flex">
+          <label for="astyle"><Icon name="aStyle" />
+            Style for <code>a</code> tags</label>
+          <textarea
+            style="font-family: 'Inconsolata', monospace; width: 30rem;"
+            bind:value={aStyle}
+            id="astyle" />
+        </div>
 
-      <div class="ctrl-flex">
-        <label for="imgstyle"><Icon name="imgStyle" />
-          Style for <code>img</code> tags</label>
-        <input
-          style="font-family: 'Inconsolata', monospace; width: 30rem;"
-          type="text"
-          bind:value={imageStyle}
-          id="imgstyle" />
-      </div>
+        <div class="ctrl-flex">
+          <label for="imgstyle"><Icon name="imgStyle" />
+            Style for <code>img</code> tags</label>
+          <textarea
+            style="font-family: 'Inconsolata', monospace; width: 30rem;"
+            bind:value={imageStyle}
+            id="imgstyle" />
+        </div>
 
-      <small>
-        Use <code on:click={() => copyText('{columnWidth}')} style="color: var(--accent)">{'{columnWidth}'}</code> instead of the actual image width.
-      </small>
-      <br>
-      <small>
-        Write <code on:click={() => copyText('{setGap}')} style="color: var(--accent)">{'{setGap}'}</code> to use spacing set above.
-      </small>
+        <small>
+          <code
+            on:click={() => copyText('{columnWidth}')}
+            class="copyable">{'{columnWidth}'}</code> instead of the actual image
+          width.
+        </small>
+        <br />
+        <small>
+          <code
+            on:click={() => copyText('{setGap}')}
+            class="copyable">{'{setGap}'}</code> to use spacing set above.
+        </small>
+      </ExpandableItem>
     </ExpandableItem>
 
     <div class="item">
@@ -706,21 +714,27 @@
       <p class="copiedToClipboardTxt">{columnCopiedToClipboardTxt}</p>
     </div>
     <div style="display: flex; gap: 1rem; padding: 1rem;">
+      <span style="font-size: 0.8rem; opacity: 0.6">Test images</span>
       <span
-        style="opacity: 0.5; cursor: pointer;font-size: 0.8rem;"
+        class="copyable"
+        style="font-size: 0.8rem; filter: grayscale(1) brightness(140%)"
         on:click={() => {
-          columnImages += '\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo';
-          columnUrls += '\n#\n#';
           columnImgData = [{ img: 'https://picsum.photos/id/10/300', url: '#', id: 0 }, { img: 'https://picsum.photos/id/20/300', url: '#', id: 1 }];
-        }}>Test images x2</span>
+        }}>add 2</span>
 
       <span
-        style="opacity: 0.5; cursor: pointer;font-size: 0.8rem;"
+        class="copyable"
+        style="font-size: 0.8rem; filter: grayscale(1) brightness(140%)"
         on:click={() => {
-          columnImages += '\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo\nhttps://yt3.ggpht.com/a/AATXAJzF-K41Fq96yE6jxs_fE6Hr7zvMXsQbqz1QNxGpjg=s88-c-k-c0xffffffff-no-rj-mo';
-          columnUrls += '\n#\n#\n#\n#';
           columnImgData = [{ img: 'https://picsum.photos/id/1/300', url: '#', id: 0 }, { img: 'https://picsum.photos/id/10/300', url: '#', id: 1 }, { img: 'https://picsum.photos/id/20/300', url: '#', id: 2 }, { img: 'https://picsum.photos/id/30/300', url: '#', id: 3 }, { img: 'https://picsum.photos/id/40/300', url: '#', id: 4 }, { img: 'https://picsum.photos/id/50/300', url: '#', id: 5 }];
-        }}>Test images x6</span>
+        }}>add 6</span>
+
+      <span
+        class="copyable"
+        style="font-size: 0.8rem; filter: grayscale(1) brightness(140%)"
+        on:click={() => {
+          columnImgData = [{ img: 'https://picsum.photos/id/1/300', url: '#', id: 0 }, { img: 'https://picsum.photos/id/10/300', url: '#', id: 1 }, { img: 'https://picsum.photos/id/20/300', url: '#', id: 2 }, { img: 'https://picsum.photos/id/30/300', url: '#', id: 3 }, { img: 'https://picsum.photos/id/40/300', url: '#', id: 4 }, { img: 'https://picsum.photos/id/50/300', url: '#', id: 5 }, { img: 'https://picsum.photos/id/60/300', url: '#', id: 6 }, { img: 'https://picsum.photos/id/70/300', url: '#', id: 7 }, { img: 'https://picsum.photos/id/80/300', url: '#', id: 8 }, { img: 'https://picsum.photos/id/90/300', url: '#', id: 9 }, { img: 'https://picsum.photos/id/100/300', url: '#', id: 10 }, { img: 'https://picsum.photos/id/110/300', url: '#', id: 11 }];
+        }}>add 12</span>
     </div>
   </aside>
 </div>
